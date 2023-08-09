@@ -4,7 +4,9 @@ Shader "Unlit/FractalRenderer"
     {
         _Cx ("Cx", Float) = 0
         _Cy ("Cy", Float) = 0
-        _LineColor ("Line color", Color) = (1, 1, 1, 1)
+        _MaxIterations ("MaxIterations", Int) = 20
+        _Treshold ("Treshold", Float) = 2
+        _PosAndSize ("PosAndSize", Vector) = (0, 0, 1920, 1080)
     }
     SubShader
     {
@@ -36,15 +38,20 @@ Shader "Unlit/FractalRenderer"
 
             float _Cx;
             float _Cy;
-            float4 _LineColor;
+            int _MaxIterations;
+            float _Treshold;
 
-            float4 _MainTex_ST;
-
+            float4 _PosAndSize;
             
 
             float2 MultiplyComplex(float2 a, float2 b)
             {
                 return float2(a.x * b.x - a.y * b.y, a.x * b.y - a.y * b.x);
+            }
+
+            float2 AddComplex(float2 a, float2 b)
+            {
+                return float2(a.x + b.x, a.y + b.y);
             }
 
             float SqrMagnitude(float2 a)
@@ -64,7 +71,17 @@ Shader "Unlit/FractalRenderer"
 
             float4 frag (v2f i) : SV_Target
             {
-                return float4(i.uv.x, i.uv.y, 1,1) * _LineColor;
+                float2 z = _PosAndSize.xy + _PosAndSize.zw * i.uv;
+                float2 c = float2(_Cx, _Cy);
+                int it = 0;
+                while (it < _MaxIterations && SqrMagnitude(z) < _Treshold)
+                {
+                    z = AddComplex(MultiplyComplex(z, z), c);
+                    it++;
+                }
+
+                float time = float(it) / float(_MaxIterations);
+                return float4(time, time, time, 1);
             }
             ENDCG
         }
