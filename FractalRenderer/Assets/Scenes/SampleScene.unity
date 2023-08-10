@@ -324,8 +324,8 @@ Camera:
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60
-  orthographic: 0
-  orthographic size: 5
+  orthographic: 1
+  orthographic size: 9.02
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -349,7 +349,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 963331614}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -10}
+  m_LocalPosition: {x: 0, y: 1, z: -100}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -368,6 +368,7 @@ GameObject:
   - component: {fileID: 979279118}
   - component: {fileID: 979279117}
   - component: {fileID: 979279116}
+  - component: {fileID: 979279120}
   m_Layer: 0
   m_Name: Cube
   m_TagString: Untagged
@@ -447,9 +448,36 @@ Transform:
   m_GameObject: {fileID: 979279115}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 50, y: 50, z: 50}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &979279120
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 979279115}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e718d2d86647c5840a6861d95ae2784c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_material: {fileID: 2100000, guid: 261a5948b53197c43a9a48c4726eb106, type: 2}
+  m_startViewport:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 10
+    height: 10
+  m_moveSpeed: 1
+  m_zoomSpeed: 1
+  m_moveInput: {fileID: 6552265765936787742, guid: fe34a05fafe12d84d8667fb0821c6759,
+    type: 3}
+  m_zoomInInput: {fileID: -8837869677882857529, guid: fe34a05fafe12d84d8667fb0821c6759,
+    type: 3}
+  m_zoomOutInput: {fileID: 6988514647855706695, guid: fe34a05fafe12d84d8667fb0821c6759,
+    type: 3}
