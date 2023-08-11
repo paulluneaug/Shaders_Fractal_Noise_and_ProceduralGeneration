@@ -15,19 +15,19 @@
                     "initialStateCheck": true
                 },
                 {
-                    "name": "ZoomIn",
+                    "name": "Zoom",
                     "type": "Value",
                     "id": "8c4b20b0-372d-4e61-bafd-687a82029897",
                     "expectedControlType": "Axis",
-                    "processors": "",
+                    "processors": "Normalize(max=1)",
                     "interactions": "",
                     "initialStateCheck": true
                 },
                 {
-                    "name": "ZoomOut",
+                    "name": "MoveConst",
                     "type": "Value",
-                    "id": "6f81c288-14ee-4f2f-9c3b-1c4f8ac8114a",
-                    "expectedControlType": "Axis",
+                    "id": "259d750f-0b37-4150-a5f7-0b175b87bae0",
+                    "expectedControlType": "Vector2",
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": true
@@ -35,8 +35,41 @@
             ],
             "bindings": [
                 {
+                    "name": "Scroll",
+                    "id": "e71d0020-cf50-430c-b071-b88bebf0dfb8",
+                    "path": "1DAxis",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Zoom",
+                    "isComposite": true,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "negative",
+                    "id": "71d4d230-1b4f-4655-b1e2-b74220594f98",
+                    "path": "<Keyboard>/q",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "MouseAndKeyboard",
+                    "action": "Zoom",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "positive",
+                    "id": "bdb2f394-a344-4c4e-a7e7-821e6a97a44c",
+                    "path": "<Keyboard>/e",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "MouseAndKeyboard",
+                    "action": "Zoom",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
                     "name": "ZQSD",
-                    "id": "cd8a7fcf-75ae-46df-a0c3-c7421e68610e",
+                    "id": "99927888-b70d-4727-adce-aa05ae4c1db5",
                     "path": "2DVector",
                     "interactions": "",
                     "processors": "",
@@ -47,69 +80,102 @@
                 },
                 {
                     "name": "up",
-                    "id": "67db4ca4-3542-4a22-baa6-981a9f4c467c",
-                    "path": "<Keyboard>/z",
+                    "id": "0a86b7b1-55a4-47a1-81a4-34d929f86447",
+                    "path": "<Keyboard>/w",
                     "interactions": "",
                     "processors": "",
-                    "groups": "MouseAndKeyboard",
+                    "groups": "",
                     "action": "Move",
                     "isComposite": false,
                     "isPartOfComposite": true
                 },
                 {
                     "name": "down",
-                    "id": "87d2ff63-5382-41bc-b957-e9258076ac71",
+                    "id": "ca401810-5287-4fb9-9d0b-33899ef7c291",
                     "path": "<Keyboard>/s",
                     "interactions": "",
                     "processors": "",
-                    "groups": "MouseAndKeyboard",
+                    "groups": "",
                     "action": "Move",
                     "isComposite": false,
                     "isPartOfComposite": true
                 },
                 {
                     "name": "left",
-                    "id": "182a0468-49da-492e-9559-ad532ef433ab",
-                    "path": "<Keyboard>/q",
+                    "id": "9506cd7d-306f-47d9-a674-50ccfe0e9622",
+                    "path": "<Keyboard>/a",
                     "interactions": "",
                     "processors": "",
-                    "groups": "MouseAndKeyboard",
+                    "groups": "",
                     "action": "Move",
                     "isComposite": false,
                     "isPartOfComposite": true
                 },
                 {
                     "name": "right",
-                    "id": "794f02ea-b443-4fd6-8ed3-9b6d8c0de646",
+                    "id": "995b4d49-7a3c-4d39-9c03-23f309823c8f",
                     "path": "<Keyboard>/d",
                     "interactions": "",
                     "processors": "",
-                    "groups": "MouseAndKeyboard",
+                    "groups": "",
                     "action": "Move",
                     "isComposite": false,
                     "isPartOfComposite": true
                 },
                 {
-                    "name": "",
-                    "id": "0cb2e9c9-0e56-415c-898b-b8b79cb787fd",
-                    "path": "<Mouse>/scroll/up",
+                    "name": "Arrows",
+                    "id": "7a23618e-7eec-4235-9d7b-4767c7341d98",
+                    "path": "2DVector",
                     "interactions": "",
                     "processors": "",
-                    "groups": "MouseAndKeyboard",
-                    "action": "ZoomIn",
-                    "isComposite": false,
+                    "groups": "",
+                    "action": "MoveConst",
+                    "isComposite": true,
                     "isPartOfComposite": false
                 },
                 {
-                    "name": "",
-                    "id": "a3a32af0-28f0-4885-be46-f9ba9083f4a9",
-                    "path": "<Mouse>/scroll/down",
+                    "name": "up",
+                    "id": "a8cb38fc-6ee8-442c-9b8a-5c41b2689a15",
+                    "path": "<Keyboard>/upArrow",
                     "interactions": "",
                     "processors": "",
                     "groups": "MouseAndKeyboard",
-                    "action": "ZoomOut",
+                    "action": "MoveConst",
                     "isComposite": false,
-                    "isPartOfComposite": false
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "down",
+                    "id": "9a0755a7-24f1-438c-ae08-791d9ac2bc95",
+                    "path": "<Keyboard>/downArrow",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "MouseAndKeyboard",
+                    "action": "MoveConst",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "left",
+                    "id": "ada5aad5-9ba8-490e-8ec3-055435c24ed4",
+                    "path": "<Keyboard>/leftArrow",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "MouseAndKeyboard",
+                    "action": "MoveConst",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "right",
+                    "id": "305b236e-fc02-4519-ac62-801c1207cf04",
+                    "path": "<Keyboard>/rightArrow",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "MouseAndKeyboard",
+                    "action": "MoveConst",
+                    "isComposite": false,
+                    "isPartOfComposite": true
                 }
             ]
         }
