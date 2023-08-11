@@ -36,12 +36,21 @@ Shader "Unlit/FractalRenderer"
                 float4 vertex : SV_POSITION;
             };
 
+            struct GradientKey
+            {
+                float Time;
+                float4 Color;
+            };
+
             float _Cx;
             float _Cy;
-            int _MaxIterations;
+            uint _MaxIterations;
             float _Treshold;
 
             float4 _PosAndSize;
+
+            StructuredBuffer<GradientKey> _Gradient;
+            int _GradientSize;
             
 
             float2 SquareComplex(float2 a)
@@ -59,6 +68,41 @@ Shader "Unlit/FractalRenderer"
                 return a.x * a.x + a.y * a.y;
             }
 
+            float4 SampleColor(float time)
+            {
+                // return lerp(float4(0, 0, 0, 1), float4(1, 1, 1, 1), time);
+                if (_GradientSize == 0)
+                {
+                    return lerp(float4(0, 0, 0, 1), float4(1, 1, 1, 1), time);
+                }
+
+                if (_GradientSize == 1)
+                {
+                    return _Gradient[0].Color;
+                }
+
+                uint keyIndex = 0;
+                while(!(_Gradient[keyIndex].Time <= time && time <= _Gradient[keyIndex + 1].Time) && keyIndex < _GradientSize - 1)
+                {
+                    keyIndex++;
+                }
+
+                if (keyIndex == _GradientSize - 1)
+                {
+                    return _Gradient[keyIndex].Color;
+                }
+
+                GradientKey lowerKey = _Gradient[keyIndex];
+                GradientKey upperKey = _Gradient[keyIndex + 1];
+                if (time == lowerKey.Time)
+                {
+                    return (0,0,0,1);
+                }
+
+                float newTime = float(time - lowerKey.Time) / float(upperKey.Time - lowerKey.Time);
+                // return lerp((0,0,0,1), (1,1,1,1), newTime);
+                return lerp(lowerKey.Color, upperKey.Color, newTime);
+            }
 
             v2f vert (appdata v)
             {
@@ -81,7 +125,7 @@ Shader "Unlit/FractalRenderer"
                 }
 
                 float time = it / float(_MaxIterations);
-                return float4(time, time, time, 1);
+                return SampleColor(time);
             }
             ENDCG
         }
