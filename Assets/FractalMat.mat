@@ -85,8 +85,8 @@ Material:
     - _ClearCoatSmoothness: 0
     - _Cull: 2
     - _Cutoff: 0.5
-    - _Cx: 0.45
-    - _Cy: -0.11
+    - _Cx: 0
+    - _Cy: 0
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
@@ -114,7 +114,7 @@ Material:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _LineColor: {r: 1, g: 1, b: 1, a: 1}
-    - _PosAndSize: {r: -5.406685, g: 5.7477703, b: -1.4354024, a: -1.4354024}
+    - _PosAndSize: {r: 0, g: 0, b: 10, a: 10}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []
 --- !u!114 &6253838944591395488

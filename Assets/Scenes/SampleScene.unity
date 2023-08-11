@@ -466,18 +466,50 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e718d2d86647c5840a6861d95ae2784c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_material: {fileID: 2100000, guid: 261a5948b53197c43a9a48c4726eb106, type: 2}
+  m_renderer: {fileID: 979279117}
   m_startViewport:
     serializedVersion: 2
     x: 0
     y: 0
     width: 10
     height: 10
+  m_colorGradient:
+    serializedVersion: 2
+    key0: {r: 1, g: 0, b: 0, a: 1}
+    key1: {r: 1, g: 0.6039216, b: 0, a: 1}
+    key2: {r: 1, g: 1, b: 0, a: 0}
+    key3: {r: 0, g: 1, b: 0, a: 0}
+    key4: {r: 1, g: 1, b: 1, a: 0}
+    key5: {r: 0, g: 0, b: 0, a: 0}
+    key6: {r: 0, g: 0, b: 0, a: 0}
+    key7: {r: 0, g: 0, b: 0, a: 0}
+    ctime0: 0
+    ctime1: 21627
+    ctime2: 43253
+    ctime3: 65535
+    ctime4: 65535
+    ctime5: 0
+    ctime6: 0
+    ctime7: 0
+    atime0: 0
+    atime1: 65535
+    atime2: 0
+    atime3: 0
+    atime4: 0
+    atime5: 0
+    atime6: 0
+    atime7: 0
+    m_Mode: 0
+    m_NumColorKeys: 4
+    m_NumAlphaKeys: 2
   m_moveSpeed: 1
+  m_moveConstSpeed: 1
   m_zoomSpeed: 1
+  m_lerpFactor: 1
   m_moveInput: {fileID: 6552265765936787742, guid: fe34a05fafe12d84d8667fb0821c6759,
     type: 3}
-  m_zoomInInput: {fileID: -8837869677882857529, guid: fe34a05fafe12d84d8667fb0821c6759,
+  m_moveConstInput: {fileID: -5112331908569698351, guid: fe34a05fafe12d84d8667fb0821c6759,
     type: 3}
-  m_zoomOutInput: {fileID: 6988514647855706695, guid: fe34a05fafe12d84d8667fb0821c6759,
+  m_zoomInput: {fileID: -8837869677882857529, guid: fe34a05fafe12d84d8667fb0821c6759,
     type: 3}
+  m_currentConst: {x: 0, y: 0}
