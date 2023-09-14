@@ -26,6 +26,7 @@ public class PerlinNoiseController : MonoBehaviour
         }
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     private struct GPUNoiseLayer
     {
         public float LayerWeigth;
