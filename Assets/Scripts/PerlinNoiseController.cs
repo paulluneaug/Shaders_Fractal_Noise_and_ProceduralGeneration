@@ -11,7 +11,7 @@ public class PerlinNoiseController : MonoBehaviour
     private const string SMOOTHER_STEP = "_SmootherStep";
     private const string GRADIENT_SIZE_X = "_GradientSizeX";
     private const string GRADIENT_SIZE_Y = "_GradientSizeY";
-    private const string GRADIENT = "_Gradient";
+    private const string RESULT_BUFFER = "_ResultBuffer";
     private const string GRADIENT_OFFSET = "_GradientOffet";
 
     [SerializeField] private ComputeShader m_perlinNoiseShader = null;
@@ -23,18 +23,21 @@ public class PerlinNoiseController : MonoBehaviour
     [SerializeField] private bool m_useSmootherStep;
     [SerializeField] private int m_gradientOffset;
 
+    [SerializeField] private Terrain m_terrain;
+    [SerializeField] private int m_terrainHeight;
+
     [NonSerialized] private int m_kernelID = 0;
 
     [NonSerialized] private int m_resultPropertyID = 0;
     [NonSerialized] private int m_smootherStepPropertyID = 0;
     [NonSerialized] private int m_gradientSizeXPropertyID = 0;
     [NonSerialized] private int m_gradientSizeYPropertyID = 0;
-    [NonSerialized] private int m_gradientPropertyID = 0;
+    [NonSerialized] private int m_resultBufferPropertyID = 0;
     [NonSerialized] private int m_gradientOffsetPropertyID = 0;
 
     [NonSerialized] private MaterialPropertyBlock m_propertyBlock = null;
     [NonSerialized] private RenderTexture m_targetTexture = null;
-    //[NonSerialized] private ComputeBuffer m_gradientBuffer;
+    [NonSerialized] private ComputeBuffer m_resultBuffer;
 
     private void Awake()
     {
@@ -44,7 +47,7 @@ public class PerlinNoiseController : MonoBehaviour
         m_smootherStepPropertyID = Shader.PropertyToID(SMOOTHER_STEP);
         m_gradientSizeXPropertyID = Shader.PropertyToID(GRADIENT_SIZE_X);
         m_gradientSizeYPropertyID = Shader.PropertyToID(GRADIENT_SIZE_Y);
-        m_gradientPropertyID = Shader.PropertyToID(GRADIENT);
+        m_resultBufferPropertyID = Shader.PropertyToID(RESULT_BUFFER);
         m_gradientOffsetPropertyID = Shader.PropertyToID(GRADIENT_OFFSET);
 
         m_propertyBlock = new MaterialPropertyBlock();
@@ -54,7 +57,7 @@ public class PerlinNoiseController : MonoBehaviour
 
     private void OnDestroy()
     {
-        //m_gradientBuffer.Release();
+        m_resultBuffer.Release();
     }
 
     private void UpdateShaderProperty()
@@ -66,11 +69,17 @@ public class PerlinNoiseController : MonoBehaviour
         Debug.LogError($"GradientSize : {gradientSize}");
         Debug.LogError($"NoiseScale : {m_noiseScale}");
 
-        m_targetTexture = new RenderTexture(m_textureSize.x, m_textureSize.y, 16);
+        m_targetTexture = new RenderTexture(m_textureSize.x, m_textureSize.y, 32/*, RenderTextureFormat.RFloat*/);
         m_targetTexture.enableRandomWrite = true;
+
+        m_resultBuffer?.Release();
+        m_resultBuffer = new ComputeBuffer(m_textureSize.x * m_textureSize.y, sizeof(float));
+        m_perlinNoiseShader.SetBuffer(m_kernelID, m_resultBufferPropertyID, m_resultBuffer);
 
         m_perlinNoiseShader.SetTexture(m_kernelID, m_resultPropertyID, m_targetTexture);
         m_perlinNoiseShader.SetBool(m_smootherStepPropertyID, m_useSmootherStep);
+
+        m_perlinNoiseShader.SetInt("_ResultBufferSizeX", m_textureSize.x);
 
         m_perlinNoiseShader.SetInt(m_gradientSizeXPropertyID, gradientSize.x);
         m_perlinNoiseShader.SetInt(m_gradientSizeYPropertyID, gradientSize.y);
@@ -83,6 +92,18 @@ public class PerlinNoiseController : MonoBehaviour
 
         m_renderer.material.mainTexture = m_targetTexture;
 
+        float[] result = new float[m_textureSize.x * m_textureSize.y];
+        m_resultBuffer.GetData(result);
+
+        float[,] terrainDatas = new float[m_textureSize.x, m_textureSize.y];
+        for (int i = 0; i < m_textureSize.x * m_textureSize.y; i++)
+        {
+            terrainDatas[i % m_textureSize.x, i / m_textureSize.x] = result[i];
+        }
+
+        m_terrain.terrainData.heightmapResolution = m_textureSize.y + 1;
+        m_terrain.terrainData.SetHeights(0, 0, terrainDatas);
+        m_terrain.Flush();
     }
 
     //private Vector2Int FillGradientBuffer()
