@@ -13,6 +13,7 @@ public class PerlinNoiseController : MonoBehaviour
     private const string GRADIENT_SIZE_Y = "_GradientSizeY";
     private const string RESULT_BUFFER = "_ResultBuffer";
     private const string GRADIENT_OFFSET = "_GradientOffet";
+    private const string RESULT_BUFFER_SIZE_X = "_ResultBufferSizeX";
 
     [SerializeField] private ComputeShader m_perlinNoiseShader = null;
 
@@ -34,10 +35,13 @@ public class PerlinNoiseController : MonoBehaviour
     [NonSerialized] private int m_gradientSizeYPropertyID = 0;
     [NonSerialized] private int m_resultBufferPropertyID = 0;
     [NonSerialized] private int m_gradientOffsetPropertyID = 0;
+    [NonSerialized] private int m_resultBufferSizeXPropertyID = 0;
 
     [NonSerialized] private MaterialPropertyBlock m_propertyBlock = null;
     [NonSerialized] private RenderTexture m_targetTexture = null;
     [NonSerialized] private ComputeBuffer m_resultBuffer;
+
+    [NonSerialized] private ScriptExecutionTimeRecorder m_recorder = null;
 
     private void Awake()
     {
@@ -49,8 +53,11 @@ public class PerlinNoiseController : MonoBehaviour
         m_gradientSizeYPropertyID = Shader.PropertyToID(GRADIENT_SIZE_Y);
         m_resultBufferPropertyID = Shader.PropertyToID(RESULT_BUFFER);
         m_gradientOffsetPropertyID = Shader.PropertyToID(GRADIENT_OFFSET);
+        m_resultBufferSizeXPropertyID = Shader.PropertyToID(RESULT_BUFFER_SIZE_X);
 
         m_propertyBlock = new MaterialPropertyBlock();
+
+        m_recorder = new ScriptExecutionTimeRecorder();
 
         UpdateShaderProperty();
     }
@@ -60,8 +67,10 @@ public class PerlinNoiseController : MonoBehaviour
         m_resultBuffer.Release();
     }
 
-    private void UpdateShaderProperty()
+    public void UpdateShaderProperty()
     {
+        m_recorder.Reset();
+
         Vector2Int gradientSize = new Vector2Int(
             Mathf.CeilToInt((float)m_textureSize.x / m_noiseScale),
             Mathf.CeilToInt((float)m_textureSize.x / m_noiseScale));
@@ -72,6 +81,8 @@ public class PerlinNoiseController : MonoBehaviour
         m_targetTexture = new RenderTexture(m_textureSize.x, m_textureSize.y, 32/*, RenderTextureFormat.RFloat*/);
         m_targetTexture.enableRandomWrite = true;
 
+        m_recorder.AddEvent("RenderTexture creation");
+
         m_resultBuffer?.Release();
         m_resultBuffer = new ComputeBuffer(m_textureSize.x * m_textureSize.y, sizeof(float));
         m_perlinNoiseShader.SetBuffer(m_kernelID, m_resultBufferPropertyID, m_resultBuffer);
@@ -79,21 +90,27 @@ public class PerlinNoiseController : MonoBehaviour
         m_perlinNoiseShader.SetTexture(m_kernelID, m_resultPropertyID, m_targetTexture);
         m_perlinNoiseShader.SetBool(m_smootherStepPropertyID, m_useSmootherStep);
 
-        m_perlinNoiseShader.SetInt("_ResultBufferSizeX", m_textureSize.x);
+        m_perlinNoiseShader.SetInt(m_resultBufferSizeXPropertyID, m_textureSize.x);
 
         m_perlinNoiseShader.SetInt(m_gradientSizeXPropertyID, gradientSize.x);
         m_perlinNoiseShader.SetInt(m_gradientSizeYPropertyID, gradientSize.y);
 
         m_perlinNoiseShader.SetInt(m_gradientOffsetPropertyID, m_gradientOffset);
 
+        m_recorder.AddEvent("Shader properties assignation");
+
         int groupX = Mathf.CeilToInt(m_textureSize.x / 8.0f);
         int groupY = Mathf.CeilToInt(m_textureSize.y / 8.0f);
         m_perlinNoiseShader.Dispatch(m_kernelID, groupX, groupY, 1);
+
+        m_recorder.AddEvent("Shader Dispatch");
 
         m_renderer.material.mainTexture = m_targetTexture;
 
         float[] result = new float[m_textureSize.x * m_textureSize.y];
         m_resultBuffer.GetData(result);
+
+        m_recorder.AddEvent("Data acquisition from shader");
 
         float[,] terrainDatas = new float[m_textureSize.x, m_textureSize.y];
         for (int i = 0; i < m_textureSize.x * m_textureSize.y; i++)
@@ -101,9 +118,15 @@ public class PerlinNoiseController : MonoBehaviour
             terrainDatas[i % m_textureSize.x, i / m_textureSize.x] = result[i];
         }
 
+        m_recorder.AddEvent("Buffer un-flattening");
+
         m_terrain.terrainData.heightmapResolution = m_textureSize.y + 1;
         m_terrain.terrainData.SetHeights(0, 0, terrainDatas);
+
+        m_recorder.AddEvent("Terrain height set");
+
         m_terrain.Flush();
+        m_recorder.AddEvent("Terrain Flush");
     }
 
     //private Vector2Int FillGradientBuffer()
@@ -122,17 +145,4 @@ public class PerlinNoiseController : MonoBehaviour
 
     //    return gradientSize;
     //}
-
-    private void OnValidate()
-    {
-        if (Application.isPlaying)
-        {
-            UpdateShaderProperty();
-        }
-        //Vector2Int size = new Vector2Int();
-        //size.x = Mathf.RoundToInt((float)m_textureScale.x / m_noiseScale) * m_noiseScale + 1;
-        //size.y = Mathf.RoundToInt((float)m_textureScale.y / m_noiseScale) * m_noiseScale + 1;
-        //m_textureScale = size;
-
-    }
 }
