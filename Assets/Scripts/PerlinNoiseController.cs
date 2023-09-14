@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class PerlinNoiseController : MonoBehaviour
@@ -127,6 +125,8 @@ public class PerlinNoiseController : MonoBehaviour
 
         m_terrain.Flush();
         m_recorder.AddEvent("Terrain Flush");
+
+        m_recorder.LogAllEventsTimeSpan();
     }
 
     //private Vector2Int FillGradientBuffer()

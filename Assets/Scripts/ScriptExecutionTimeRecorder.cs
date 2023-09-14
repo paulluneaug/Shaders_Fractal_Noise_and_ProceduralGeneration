@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -25,12 +24,13 @@ public class ScriptExecutionTimeRecorder
 
     private List<ScriptEvent> m_events = null;
 
+    private DateTime m_firstEventTime;
     private DateTime m_previousEventTime;
 
     public ScriptExecutionTimeRecorder()
     {
         m_events = new List<ScriptEvent>();
-        m_previousEventTime = DateTime.Now;
+        ReinitTimes();
     }
 
     public void AddEvent(string eventName, bool logImmediatly = true)
@@ -76,11 +76,30 @@ public class ScriptExecutionTimeRecorder
         {
             log += e.ToString() + "\n";
         }
+        log += GetAllEventsTimeSpan();
+
+        Debug.Log(log);
+    }
+
+    public void LogAllEventsTimeSpan()
+    {
+        Debug.Log(GetAllEventsTimeSpan());
     }
 
     public void Reset()
     {
         m_events.Clear();
-        m_previousEventTime = DateTime.Now;
+        ReinitTimes();
+    }
+
+    private void ReinitTimes()
+    {
+        m_firstEventTime = DateTime.Now;
+        m_previousEventTime = m_firstEventTime;
+    }
+
+    private string GetAllEventsTimeSpan()
+    {
+        return $"[Recorder] All the logged events took {(m_previousEventTime - m_firstEventTime).TotalMilliseconds} ms so far";
     }
 }
