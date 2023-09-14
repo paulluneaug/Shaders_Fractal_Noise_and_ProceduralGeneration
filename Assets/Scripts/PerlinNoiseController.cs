@@ -15,26 +15,28 @@ public class PerlinNoiseController : MonoBehaviour
 
         public GPUNoiseLayer ToGPUNoiseLayer(Vector2Int textureSize)
         {
+            Debug.LogWarning($"NoiseScale : {NoiseScale}");
+            Debug.LogWarning($"GradientSize : ({Mathf.CeilToInt((float)textureSize.x / NoiseScale)}; {Mathf.CeilToInt((float)textureSize.y / NoiseScale)})");
             return new GPUNoiseLayer(
                 LayerWeight,
                 GradientOffset,
                 Mathf.CeilToInt((float)textureSize.x / NoiseScale),
-                Mathf.CeilToInt((float)textureSize.x / NoiseScale),
-                UseSmootherStep);
+                Mathf.CeilToInt((float)textureSize.y / NoiseScale),
+                UseSmootherStep ? 1 : 0);
         }
     }
 
-    private readonly struct GPUNoiseLayer
+    private struct GPUNoiseLayer
     {
-        public readonly float LayerWeigth;
+        public float LayerWeigth;
         
-        public readonly int GradientOffset;
-        public readonly int GradientSizeX;
-        public readonly int GradientSizeY;
+        public int GradientOffset;
+        public int GradientSizeX;
+        public int GradientSizeY;
 
-        public readonly bool UseSmootherStep;
+        public int UseSmootherStep;
 
-        public GPUNoiseLayer(float layerWeigth, int gradientOffset, int gradientSizeX, int gradientSizeY, bool useSmootherStep)
+        public GPUNoiseLayer(float layerWeigth, int gradientOffset, int gradientSizeX, int gradientSizeY, int useSmootherStep)
         {
             LayerWeigth = layerWeigth;
             GradientOffset = gradientOffset;
@@ -118,6 +120,7 @@ public class PerlinNoiseController : MonoBehaviour
 
         m_noiseLayersBuffer?.Release();
         m_noiseLayersBuffer = new ComputeBuffer(m_textureSize.x * m_textureSize.y, Marshal.SizeOf(typeof(GPUNoiseLayer)));
+        m_noiseLayersBuffer.SetData(gpuNoiseLayers);
         m_perlinNoiseShader.SetBuffer(m_kernelID, m_noiseLayersPropertyID, m_noiseLayersBuffer);
 
         m_perlinNoiseShader.SetInt(m_resultBufferSizeXPropertyID, m_textureSize.x);

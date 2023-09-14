@@ -10,7 +10,7 @@ struct NoiseLayer
     int GradientSizeX;
     int GradientSizeY;
     
-    bool UseSmootherStep;
+    int UseSmootherStep;
 };
 
 RWStructuredBuffer<float> _ResultBuffer;
@@ -33,11 +33,11 @@ float Smootherstep(float w)
     return ((w * (w * 6.0 - 15.0) + 10.0) * w * w * w);
 }
 
-float Interpolate(float a0, float a1, float w, bool smootherStep)
+float Interpolate(float a0, float a1, float w, int smootherStep)
 {
     //return (a1 - a0) * w + a0;
     float smoothW = 0;
-    if (smootherStep)
+    if (smootherStep == 1)
     {
         smoothW = Smootherstep(w);
     }
