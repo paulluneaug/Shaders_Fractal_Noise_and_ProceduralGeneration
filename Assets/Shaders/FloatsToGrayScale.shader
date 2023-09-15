@@ -6,8 +6,6 @@ Shader "Unlit/FlotsToGrayScale"
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
-        LOD 100
 
         Pass
         {
@@ -40,11 +38,12 @@ Shader "Unlit/FlotsToGrayScale"
                 return o;
             }
 
-            float4 frag (v2f i) : SV_Target
-{
+            float4 frag(v2f i) : SV_Target
+            {
                 int x = int(i.uv.x * _FloatBufferSizeX);
                 int y = int(i.uv.y * _FloatBufferSizeX);
                 float val = _FloatBuffer[(x + y * _FloatBufferSizeX)];
+    
                 return float4(val, val, val, 1);
 
             }
