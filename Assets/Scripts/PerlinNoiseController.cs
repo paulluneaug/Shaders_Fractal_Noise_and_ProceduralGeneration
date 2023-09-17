@@ -8,6 +8,8 @@ public class PerlinNoiseController : MonoBehaviour
     [Serializable]
     private struct NoiseLayer
     {
+        public bool Enabled;
+
         public int NoiseScale;
         public bool UseSmootherStep;
         public int GradientOffset;
@@ -119,10 +121,12 @@ public class PerlinNoiseController : MonoBehaviour
     {
         m_recorder.Reset();
 
-        int layerCount = m_noiseLayers.Length;
-
-        GPUNoiseLayer[] gpuNoiseLayers = m_noiseLayers.Select(layer => layer.ToGPUNoiseLayer(m_textureSize)).ToArray();
-        float weightMultiplier = 1.0f / m_noiseLayers.Select(layer => layer.LayerWeight).Sum();
+        GPUNoiseLayer[] gpuNoiseLayers = m_noiseLayers
+            .Where(layer => layer.Enabled)
+            .Select(layer => layer.ToGPUNoiseLayer(m_textureSize))
+            .ToArray();
+        int layerCount = gpuNoiseLayers.Length;
+        float weightMultiplier = 1.0f / gpuNoiseLayers.Select(layer => layer.LayerWeigth).Sum();
 
         // Result Buffer
         m_resultBuffer?.Release();
