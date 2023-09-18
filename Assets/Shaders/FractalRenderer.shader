@@ -67,13 +67,17 @@ Shader "Unlit/FractalRenderer"
 
             float4 SampleColor(float time)
             {
-                // return lerp(float4(0, 0, 0, 1), float4(1, 1, 1, 1), time);
                 if (_GradientSize == 0)
                 {
                     return lerp(float4(0, 0, 0, 1), float4(1, 1, 1, 1), time);
                 }
 
                 if (_GradientSize == 1)
+                {
+                    return _Gradient[0].Color;
+                }
+    
+                if (time <= _Gradient[0].Time)
                 {
                     return _Gradient[0].Color;
                 }
