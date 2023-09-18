@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: NoiseTexture
-  m_Shader: {fileID: 4800000, guid: 002d936c7cc681b4eb26fd2285df4dd7, type: 3}
+  m_Shader: {fileID: 4800000, guid: 11497c7784fbbc44d953face446750c0, type: 3}
   m_ValidKeywords: []
   m_InvalidKeywords:
   - _FLIPBOOKBLENDING_OFF
