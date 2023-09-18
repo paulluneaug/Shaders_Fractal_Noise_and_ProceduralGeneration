@@ -51,6 +51,7 @@ public class PerlinNoiseController : MonoBehaviour
 
     private const string KERNEL_NAME = "PerlinNoise";
 
+    private const string RESULT_TEXTURE = "_ResultTexture";
     private const string RESULT_BUFFER = "_ResultBuffer";
     private const string RESULT_BUFFER_SIZE_X = "_ResultBufferSizeX";
 
@@ -61,10 +62,12 @@ public class PerlinNoiseController : MonoBehaviour
     private const string FLOAT_BUFFER = "_FloatBuffer";
     private const string FLOAT_BUFFER_SIZE_X = "_FloatBufferSizeX";
 
+    private const string BASE_MAP = "_BaseMap";
+
     [SerializeField] private ComputeShader m_perlinNoiseShader = null;
 
     [SerializeField] private Renderer m_renderer = null;
-    [SerializeField] private Vector2Int m_textureSize = Vector2Int.one;
+    [NonSerialized] private Vector2Int m_textureSize = Vector2Int.one;
 
     [SerializeField] private NoiseLayer[] m_noiseLayers = null;
 
@@ -73,8 +76,11 @@ public class PerlinNoiseController : MonoBehaviour
 
     [SerializeField] private bool m_useColors;
 
+    [SerializeField] private RenderTextureFormat m_renderTexFormat;
+
     [NonSerialized] private int m_kernelID = 0;
 
+    [NonSerialized] private int m_resultTexturePropertyID = 0;
     [NonSerialized] private int m_resultBufferPropertyID = 0;
     [NonSerialized] private int m_resultBufferSizeXPropertyID = 0;
 
@@ -85,7 +91,11 @@ public class PerlinNoiseController : MonoBehaviour
     [NonSerialized] private int m_floatBufferPropertyID = 0;
     [NonSerialized] private int m_floatBufferSizeXPropertyID = 0;
 
+    [NonSerialized] private int m_baseMapPropertyID = 0;
+
     [NonSerialized] private MaterialPropertyBlock m_propertyBlock = null;
+
+    [NonSerialized] private RenderTexture m_resultTexture = null;
     [NonSerialized] private ComputeBuffer m_resultBuffer = null;
     [NonSerialized] private ComputeBuffer m_noiseLayersBuffer = null;
 
@@ -98,15 +108,22 @@ public class PerlinNoiseController : MonoBehaviour
         m_noiseLayerCountPropertyID = Shader.PropertyToID(NOISE_LAYER_COUNT);
         m_noiseLayersPropertyID = Shader.PropertyToID(NOISE_LAYERS);
         m_noiseWeightsMultiplierPropertyID = Shader.PropertyToID(NOISE_WEIGHTS_MULTIPLIER);
+
+        m_resultTexturePropertyID = Shader.PropertyToID(RESULT_TEXTURE);
         m_resultBufferPropertyID = Shader.PropertyToID(RESULT_BUFFER);
         m_resultBufferSizeXPropertyID = Shader.PropertyToID(RESULT_BUFFER_SIZE_X);
 
         m_floatBufferPropertyID = Shader.PropertyToID(FLOAT_BUFFER);
         m_floatBufferSizeXPropertyID = Shader.PropertyToID(FLOAT_BUFFER_SIZE_X);
 
+        m_baseMapPropertyID = Shader.PropertyToID(BASE_MAP);
+
         m_propertyBlock = new MaterialPropertyBlock();
 
         m_recorder = new ScriptExecutionTimeRecorder();
+
+        int resolution = m_terrain.terrainData.heightmapResolution;
+        m_textureSize = new Vector2Int(resolution - 1, resolution - 1);
 
         UpdateShaderProperty();
     }
@@ -134,6 +151,11 @@ public class PerlinNoiseController : MonoBehaviour
         m_perlinNoiseShader.SetBuffer(m_kernelID, m_resultBufferPropertyID, m_resultBuffer);
 
         m_perlinNoiseShader.SetInt(m_resultBufferSizeXPropertyID, m_textureSize.x);
+
+        // Result Texture
+        m_resultTexture = new RenderTexture(m_textureSize.x, m_textureSize.y, 0, m_renderTexFormat);
+        m_resultTexture.enableRandomWrite = true;
+        m_perlinNoiseShader.SetTexture(m_kernelID, m_resultTexturePropertyID, m_resultTexture);
 
         // Layers
         m_perlinNoiseShader.SetInt(m_noiseLayerCountPropertyID, layerCount);
@@ -164,38 +186,22 @@ public class PerlinNoiseController : MonoBehaviour
 
         m_recorder.AddEvent("Buffer un-flattening");
 
-        //Texture2D tex;
-        //if (m_useColors)
-        //{
-        //    Color[] texDatas = new Color[m_textureSize.x * m_textureSize.y];
-        //    for (int i = 0; i < m_textureSize.x * m_textureSize.y; i++)
-        //    {
-        //        float val = result[i];
-        //        //terrainDatas[i % m_textureSize.x, i / m_textureSize.x] = val;
-        //        texDatas[i] = new Color(val, val, val);
-        //    }
-        //    tex = new Texture2D(m_textureSize.x, m_textureSize.y);
-        //    tex.SetPixels(0, 0, m_textureSize.x, m_textureSize.y, texDatas);
-        //}
-        //else
-        //{
-        //    tex = new Texture2D(m_textureSize.x, m_textureSize.y, TextureFormat.RFloat, true);
-        //    tex.SetPixelData(result, 0);
-        //}
-
-        //tex.Apply();
-
         m_renderer.GetPropertyBlock(m_propertyBlock);
-        Debug.Log(m_textureSize.x);
-        m_propertyBlock.SetInt(m_floatBufferSizeXPropertyID, m_textureSize.x);
-        m_propertyBlock.SetBuffer(m_floatBufferPropertyID, m_resultBuffer);
+        //Debug.Log(m_textureSize.x);
+        //m_propertyBlock.SetInt(m_floatBufferSizeXPropertyID, m_textureSize.x);
+        //m_propertyBlock.SetBuffer(m_floatBufferPropertyID, m_resultBuffer);
+        m_propertyBlock.SetTexture(m_baseMapPropertyID, m_resultTexture);
         m_renderer.SetPropertyBlock(m_propertyBlock);
-
+        m_resultTexture.SaveRenderTexture("TestTex");
         m_recorder.AddEvent("Renderer things");
 
         m_terrain.terrainData.heightmapResolution = m_textureSize.y + 1;
+        //RenderTexture.active = m_resultTexture;
+        //m_terrain.terrainData.CopyActiveRenderTextureToHeightmap(new RectInt(0, 0, m_textureSize.x, m_textureSize.y), new Vector2Int(0,0), TerrainHeightmapSyncControl.HeightOnly);
         m_terrain.terrainData.SetHeights(0, 0, terrainDatas);
-
+        //Graphics.CopyTexture(m_resultTexture, m_terrain.terrainData.heightmapTexture);
+        //m_terrain.terrainData.DirtyHeightmapRegion(new RectInt(0, 0, m_resultTexture.width, m_resultTexture.height), TerrainHeightmapSyncControl.None);
+        
         m_recorder.AddEvent("Terrain height set");
 
         m_terrain.Flush();
