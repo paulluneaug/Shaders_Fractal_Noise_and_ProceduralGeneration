@@ -1,7 +1,6 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel PerlinNoise
 
-
 struct NoiseLayer
 {
     float LayerWeigth;
@@ -13,6 +12,13 @@ struct NoiseLayer
     int UseSmootherStep;
 };
 
+struct GradientKey
+{
+    float Time;
+    float4 Color;
+};
+
+RWTexture2D<float4> _ResultTexture;
 RWStructuredBuffer<float> _ResultBuffer;
 int _ResultBufferSizeX;
 
@@ -20,6 +26,45 @@ int _NoiseLayersCount;
 StructuredBuffer<NoiseLayer> _NoiseLayers;
 
 float _NoiseWeigthsMultiplier;
+
+// Gradient
+StructuredBuffer<GradientKey> _Gradient;
+int _GradientSize;
+
+float4 SampleColor(float time)
+{
+    if (_GradientSize == 0)
+    {
+        return lerp(float4(0, 0, 0, 1), float4(1, 1, 1, 1), time);
+    }
+
+    if (_GradientSize == 1 || time <= _Gradient[0].Time)
+    {
+        return _Gradient[0].Color;
+    }
+
+    uint keyIndex = 0;
+    while (!(_Gradient[keyIndex].Time <= time && time <= _Gradient[keyIndex + 1].Time) && keyIndex < _GradientSize - 1)
+    {
+        keyIndex++;
+    }
+
+    if (keyIndex == _GradientSize - 1)
+    {
+        return _Gradient[keyIndex].Color;
+    }
+
+    GradientKey lowerKey = _Gradient[keyIndex];
+    GradientKey upperKey = _Gradient[keyIndex + 1];
+    if (time == lowerKey.Time)
+    {
+        return (0, 0, 0, 1);
+    }
+
+    float newTime = float(time - lowerKey.Time) / float(upperKey.Time - lowerKey.Time);
+                // return lerp((0,0,0,1), (1,1,1,1), newTime);
+    return lerp(lowerKey.Color, upperKey.Color, newTime);
+}
 
 float Smoothstep(float w)
 {
@@ -114,6 +159,7 @@ void PerlinNoise (uint3 id : SV_DispatchThreadID)
     }
     
     _ResultBuffer[id.x + id.y * _ResultBufferSizeX] = value;
+    _ResultTexture[id.xy] = SampleColor(value);
     //_Result[id.xy] = float4(float(x0) / (_GradientSizeX), float(y0) / (_GradientSizeY), value, 1);
 
 }
