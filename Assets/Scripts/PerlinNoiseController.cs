@@ -183,7 +183,7 @@ public class PerlinNoiseController : MonoBehaviour
         m_rendererPropertyBlock.SetBuffer(m_floatBufferPropertyID, m_resultBuffer);
         //m_rendererPropertyBlock.SetTexture(m_baseMapPropertyID, m_resultTexture);
         m_renderer.SetPropertyBlock(m_rendererPropertyBlock);
-        //m_resultTexture.SaveRenderTexture("TestTex");
+        m_resultTexture.SaveRenderTexture("TestTex");
         m_recorder.AddEvent("Renderer things");
 
         m_terrain.terrainData.heightmapResolution = m_textureSize.y + 1;
