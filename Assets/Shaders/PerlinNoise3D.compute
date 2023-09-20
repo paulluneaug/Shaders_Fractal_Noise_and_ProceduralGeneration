@@ -1,13 +1,14 @@
 // Each #kernel tells which function to compile; you can have many kernels
-#pragma kernel PerlinNoise
+#pragma kernel PerlinNoise3D
 
-struct NoiseLayer
+struct NoiseLayer3D
 {
     float LayerWeigth;
     
     int GradientOffset;
     int GradientSizeX;
     int GradientSizeY;
+    int GradientSizeZ;
     
     int UseSmootherStep;
 };
@@ -18,12 +19,12 @@ struct GradientKey
     float4 Color;
 };
 
-RWTexture2D<float4> _ResultTexture;
+RWTexture3D<float4> _ResultTexture;
 RWStructuredBuffer<float> _ResultBuffer;
-int _ResultBufferSizeX;
+uint _ResultBufferDim;
 
 int _NoiseLayersCount;
-StructuredBuffer<NoiseLayer> _NoiseLayers;
+StructuredBuffer<NoiseLayer3D> _NoiseLayers;
 
 float _NoiseWeigthsMultiplier;
 
@@ -62,7 +63,6 @@ float4 SampleColor(float time)
     }
 
     float newTime = float(time - lowerKey.Time) / float(upperKey.Time - lowerKey.Time);
-                // return lerp((0,0,0,1), (1,1,1,1), newTime);
     return lerp(lowerKey.Color, upperKey.Color, newTime);
 }
 
@@ -94,36 +94,39 @@ float Interpolate(float a0, float a1, float w, int smootherStep)
     return a0 + (a1 - a0) * smoothW;
 }
 
-float2 RandomGradient(int ix, int iy, int gradientOffset)
+float3 RandomGradient(int ix, int iy, int iz, int gradientOffset)
 {
     // No precomputed gradients mean this works for any number of grid coordinates
     uint w = 8 * 4;
     uint s = w / 2; // rotation width
-    uint a = ix, b = iy;
+    uint a = ix, b = iy, c = iz;
     a *= 3284157443;
     b ^= a << s | a >> w - s;
     b *= 1911520717 - abs(gradientOffset);
-    a ^= b << s | b >> w - s;
+    c ^= b << s | b >> w - s;
+    c *= 1529716214;
+    a ^= c << s | c >> w - s;
     a *= 2048419325;
     float random = a * (3.14159265 / ~(~0u >> 1)); // in [0, 2*Pi]
     
-    return float2(cos(random), sin(random));
+    return float3(cos(random), sin(random), tan(random));
 }
 
-float DotGridGradient(int ix, int iy, float x, float y, int gradientOffset)
+float DotGridGradient(int ix, int iy, int iz, float x, float y, float z, int gradientOffset)
 {
-    float2 randomVec = RandomGradient(ix, iy, gradientOffset);
+    float3 randomVec = RandomGradient(ix, iy, iz, gradientOffset);
     
     // Compute the distance vector
     float dx = x - (float) ix;
     float dy = y - (float) iy;
+    float dz = z - (float) iz;
  
     // Compute the dot-product
-    return (dx * randomVec.x + dy * randomVec.y);
+    return (dx * randomVec.x + dy * randomVec.y + dz * randomVec.z);
 }
 
-[numthreads(8,8,1)]
-void PerlinNoise (uint3 id : SV_DispatchThreadID)
+[numthreads(8, 8, 8)]
+void PerlinNoise3D(uint3 id : SV_DispatchThreadID)
 {
     float value = 0;
     
@@ -144,39 +147,59 @@ void PerlinNoise (uint3 id : SV_DispatchThreadID)
     // _ResultTexture[id.xy] = SampleColor(value);
     // return;
     
-    for (int i = 0; i < _NoiseLayersCount; i++)
+    for (uint i = 0; i < _NoiseLayersCount; i++)
     {
-        NoiseLayer currentLayer = _NoiseLayers[i];
+        NoiseLayer3D currentLayer = _NoiseLayers[i];
         
         float x = float(id.x) / currentLayer.GradientSizeX;
         float y = float(id.y) / currentLayer.GradientSizeY;
+        float z = float(id.z) / currentLayer.GradientSizeZ;
     
         // Determine grid cell coordinates
         int x0 = int(floor(x));
         int x1 = x0 + 1;
         int y0 = int(floor(y));
         int y1 = y0 + 1;
+        int z0 = int(floor(z));
+        int z1 = z0 + 1;
  
         // Determine interpolation weights
         // Could also use higher order polynomial/s-curve here
         float sx = x - (float) x0;
         float sy = y - (float) y0;
+        float sz = z - (float) z0;
  
         // Interpolate between grid point gradients
-        float n0 = DotGridGradient(x0, y0, x, y, currentLayer.GradientOffset);
-        float n1 = DotGridGradient(x1, y0, x, y, currentLayer.GradientOffset);
-        float ix0 = Interpolate(n0, n1, sx, currentLayer.UseSmootherStep);
-        n0 = DotGridGradient(x0, y1, x, y, currentLayer.GradientOffset);
-        n1 = DotGridGradient(x1, y1, x, y, currentLayer.GradientOffset);
-        float ix1 = Interpolate(n0, n1, sx, currentLayer.UseSmootherStep);
-        float layerValue = Interpolate(ix0, ix1, sy, currentLayer.UseSmootherStep);
+        float n0 = DotGridGradient(x0, y0, z0, x, y, z, currentLayer.GradientOffset);
+        float n1 = DotGridGradient(x1, y0, z0, x, y, z, currentLayer.GradientOffset);
+        float iy0z0 = Interpolate(n0, n1, sx, currentLayer.UseSmootherStep);
+        
+        n0 = DotGridGradient(x0, y1, z0, x, y, z, currentLayer.GradientOffset);
+        n1 = DotGridGradient(x1, y1, z0, x, y, z, currentLayer.GradientOffset);
+        float iy1z0 = Interpolate(n0, n1, sx, currentLayer.UseSmootherStep);
+        
+        float iz0 = Interpolate(iy0z0, iy1z0, sy, currentLayer.UseSmootherStep);
+        
+        
+        n0 = DotGridGradient(x0, y0, z1, x, y, z, currentLayer.GradientOffset);
+        n1 = DotGridGradient(x1, y0, z1, x, y, z, currentLayer.GradientOffset);
+        float iy0z1 = Interpolate(n0, n1, sx, currentLayer.UseSmootherStep);
+        
+        n0 = DotGridGradient(x0, y1, z1, x, y, z, currentLayer.GradientOffset);
+        n1 = DotGridGradient(x1, y1, z1, x, y, z, currentLayer.GradientOffset);
+        float iy1z1 = Interpolate(n0, n1, sx, currentLayer.UseSmootherStep);
+        
+        float iz1 = Interpolate(iy0z1, iy1z1, sy, currentLayer.UseSmootherStep);
+        
+        float layerValue = Interpolate(iz0, iz1, sz, currentLayer.UseSmootherStep);
     
         layerValue = layerValue / 2 + 0.5f;
         
         value += layerValue * currentLayer.LayerWeigth * _NoiseWeigthsMultiplier;
     }
-    
-    _ResultBuffer[id.x + id.y * _ResultBufferSizeX] = value;
-    _ResultTexture[id.xy] = SampleColor(value);
+    uint index = id.x + id.y * _ResultBufferDim + id.z * _ResultBufferDim * _ResultBufferDim;
+    _ResultBuffer[index] = value;
+    _ResultTexture[id.xyz] = float4(value, value, value, 1);
+    //_ResultTexture[id.xyz] = float4(float(id.x) / _ResultBufferDim, float(id.y) / _ResultBufferDim, float(id.z) / _ResultBufferDim, 1);
     //_Result[id.xy] = float4(float(x0) / (_GradientSizeX), float(y0) / (_GradientSizeY), value, 1);
 }
