@@ -94,6 +94,35 @@ float Interpolate(float a0, float a1, float w, int smootherStep)
     return a0 + (a1 - a0) * smoothW;
 }
 
+// Hash function from H. Schechter & R. Bridson, goo.gl/RXiKaH
+uint Hash(uint s)
+{
+    s ^= 2747636419u;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    return s;
+}
+
+float RandomFloat(inout uint seed)
+{
+    seed = Hash(seed);
+    float random = float(seed) / 4294967295.0; // 2^32-1 
+    return random * 2 - 1; // [-1;1]
+}
+
+float3 RandomFloat3InsideUnitSphere(inout int seed)
+{
+    float3 attempt = float3(RandomFloat(seed), RandomFloat(seed), RandomFloat(seed));
+    while (attempt.x * attempt.x + attempt.y * attempt.y + attempt.z * attempt.z > 1)
+    {
+        float3 attempt = float3(RandomFloat(seed), RandomFloat(seed), RandomFloat(seed));
+    }
+    return attempt;
+}
+
 float3 RandomGradient(int ix, int iy, int iz, int gradientOffset)
 {
     // No precomputed gradients mean this works for any number of grid coordinates
@@ -107,9 +136,8 @@ float3 RandomGradient(int ix, int iy, int iz, int gradientOffset)
     c *= 1529716214;
     a ^= c << s | c >> w - s;
     a *= 2048419325;
-    float random = a * (3.14159265 / ~(~0u >> 1)); // in [0, 2*Pi]
     
-    return float3(cos(random), sin(random), tan(random));
+    return RandomFloat3InsideUnitSphere(a);
 }
 
 float DotGridGradient(int ix, int iy, int iz, float x, float y, float z, int gradientOffset)
