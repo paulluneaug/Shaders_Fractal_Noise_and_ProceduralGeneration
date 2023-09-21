@@ -223,21 +223,4 @@ public class PerlinNoise3DController : MonoBehaviour
         m_perlinNoiseShader.SetBuffer(m_kernelID, m_gradientPropertyID, m_gradientBuffer);
         m_perlinNoiseShader.SetInt(m_gradientSizePropertyID, m_colorGradient.colorKeys.Length);
     }
-
-    //private Vector2Int FillGradientBuffer()
-    //{
-
-    //    int gradientLength = gradientSize.x * gradientSize.y;
-    //    m_gradientBuffer = new ComputeBuffer(gradientLength, sizeof(float) * 2);
-
-    //    float[] gradientValues = new float[gradientLength * 2];
-    //    for (int i = 0; i < gradientLength * 2; i++)
-    //    {
-    //        gradientValues[i] = UnityEngine.Random.value;
-    //    }
-
-    //    m_gradientBuffer.SetData(gradientValues);
-
-    //    return gradientSize;
-    //}
 }
