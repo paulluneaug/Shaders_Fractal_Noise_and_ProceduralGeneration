@@ -1,61 +1,147 @@
 using System;
+using System.Linq;
+using System.Runtime.InteropServices;
 using UnityEngine;
 
 public class PerlinNoiseController : MonoBehaviour
 {
+    [Serializable]
+    private struct NoiseLayer
+    {
+        public bool Enabled;
+
+        public int NoiseScale;
+        public bool UseSmootherStep;
+        public int GradientOffset;
+        public float LayerWeight;
+
+        public GPUNoiseLayer ToGPUNoiseLayer(Vector2Int textureSize)
+        {
+            Debug.LogWarning($"NoiseScale : {NoiseScale}");
+            Debug.LogWarning($"GradientSize : ({Mathf.CeilToInt((float)textureSize.x / NoiseScale)}; {Mathf.CeilToInt((float)textureSize.y / NoiseScale)})");
+            return new GPUNoiseLayer(
+                LayerWeight,
+                GradientOffset,
+                Mathf.CeilToInt((float)textureSize.x / NoiseScale),
+                Mathf.CeilToInt((float)textureSize.y / NoiseScale),
+                UseSmootherStep ? 1 : 0);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GPUNoiseLayer
+    {
+        public float LayerWeigth;
+        
+        public int GradientOffset;
+        public int GradientSizeX;
+        public int GradientSizeY;
+
+        public int UseSmootherStep;
+
+        public GPUNoiseLayer(float layerWeigth, int gradientOffset, int gradientSizeX, int gradientSizeY, int useSmootherStep)
+        {
+            LayerWeigth = layerWeigth;
+            GradientOffset = gradientOffset;
+            GradientSizeX = gradientSizeX;
+            GradientSizeY = gradientSizeY;
+            UseSmootherStep = useSmootherStep;
+        }
+    }
+
     private const string KERNEL_NAME = "PerlinNoise";
 
-    private const string RESULT = "_Result";
-    private const string SMOOTHER_STEP = "_SmootherStep";
-    private const string GRADIENT_SIZE_X = "_GradientSizeX";
-    private const string GRADIENT_SIZE_Y = "_GradientSizeY";
+    private const string RESULT_TEXTURE = "_ResultTexture";
     private const string RESULT_BUFFER = "_ResultBuffer";
-    private const string GRADIENT_OFFSET = "_GradientOffet";
     private const string RESULT_BUFFER_SIZE_X = "_ResultBufferSizeX";
+
+    private const string NOISE_LAYER_COUNT = "_NoiseLayersCount";
+    private const string NOISE_LAYERS = "_NoiseLayers";
+    private const string NOISE_WEIGHTS_MULTIPLIER = "_NoiseWeigthsMultiplier";
+
+    private const string FLOAT_BUFFER = "_FloatBuffer";
+    private const string FLOAT_BUFFER_SIZE_X = "_FloatBufferSizeX";
+
+    private const string BASE_MAP = "_BaseMap";
+
+    private const string GRADIENT = "_Gradient";
+    private const string GRADIENT_SIZE = "_GradientSize";
 
     [SerializeField] private ComputeShader m_perlinNoiseShader = null;
 
     [SerializeField] private Renderer m_renderer = null;
-    [SerializeField] private int m_noiseScale = 1;
-    [SerializeField] private Vector2Int m_textureSize = Vector2Int.one;
+    [NonSerialized] private Vector2Int m_textureSize = Vector2Int.one;
 
-    [SerializeField] private bool m_useSmootherStep;
-    [SerializeField] private int m_gradientOffset;
+    [SerializeField] private NoiseLayer[] m_noiseLayers = null;
 
     [SerializeField] private Terrain m_terrain;
     [SerializeField] private int m_terrainHeight;
 
+    [SerializeField] private bool m_useColors;
+
+    [SerializeField] private RenderTextureFormat m_renderTexFormat;
+
+    [SerializeField] private Material m_terrainMaterial;
+    [SerializeField] private Gradient m_colorGradient = new Gradient();
+
     [NonSerialized] private int m_kernelID = 0;
 
-    [NonSerialized] private int m_resultPropertyID = 0;
-    [NonSerialized] private int m_smootherStepPropertyID = 0;
-    [NonSerialized] private int m_gradientSizeXPropertyID = 0;
-    [NonSerialized] private int m_gradientSizeYPropertyID = 0;
+    [NonSerialized] private int m_resultTexturePropertyID = 0;
     [NonSerialized] private int m_resultBufferPropertyID = 0;
-    [NonSerialized] private int m_gradientOffsetPropertyID = 0;
     [NonSerialized] private int m_resultBufferSizeXPropertyID = 0;
 
-    [NonSerialized] private MaterialPropertyBlock m_propertyBlock = null;
-    [NonSerialized] private RenderTexture m_targetTexture = null;
-    [NonSerialized] private ComputeBuffer m_resultBuffer;
+    [NonSerialized] private int m_noiseLayerCountPropertyID = 0;
+    [NonSerialized] private int m_noiseLayersPropertyID = 0;
+    [NonSerialized] private int m_noiseWeightsMultiplierPropertyID = 0;
+
+    [NonSerialized] private int m_floatBufferPropertyID = 0;
+    [NonSerialized] private int m_floatBufferSizeXPropertyID = 0;
+
+    [NonSerialized] private int m_baseMapPropertyID = 0;
+
+    [NonSerialized] private int m_gradientPropertyID = 0;
+    [NonSerialized] private int m_gradientSizePropertyID = 0;
+
+    [NonSerialized] private MaterialPropertyBlock m_rendererPropertyBlock = null;
+    [NonSerialized] private MaterialPropertyBlock m_terrainMaterialPropertyBlock = null;
+
+    [NonSerialized] private RenderTexture m_resultTexture = null;
+    [NonSerialized] private ComputeBuffer m_resultBuffer = null;
+    [NonSerialized] private ComputeBuffer m_noiseLayersBuffer = null;
 
     [NonSerialized] private ScriptExecutionTimeRecorder m_recorder = null;
+
+    [NonSerialized] private ComputeBuffer m_gradientBuffer;
 
     private void Awake()
     {
         m_kernelID = m_perlinNoiseShader.FindKernel(KERNEL_NAME);
 
-        m_resultPropertyID = Shader.PropertyToID(RESULT);
-        m_smootherStepPropertyID = Shader.PropertyToID(SMOOTHER_STEP);
-        m_gradientSizeXPropertyID = Shader.PropertyToID(GRADIENT_SIZE_X);
-        m_gradientSizeYPropertyID = Shader.PropertyToID(GRADIENT_SIZE_Y);
+        m_noiseLayerCountPropertyID = Shader.PropertyToID(NOISE_LAYER_COUNT);
+        m_noiseLayersPropertyID = Shader.PropertyToID(NOISE_LAYERS);
+        m_noiseWeightsMultiplierPropertyID = Shader.PropertyToID(NOISE_WEIGHTS_MULTIPLIER);
+
+        m_resultTexturePropertyID = Shader.PropertyToID(RESULT_TEXTURE);
         m_resultBufferPropertyID = Shader.PropertyToID(RESULT_BUFFER);
-        m_gradientOffsetPropertyID = Shader.PropertyToID(GRADIENT_OFFSET);
         m_resultBufferSizeXPropertyID = Shader.PropertyToID(RESULT_BUFFER_SIZE_X);
 
-        m_propertyBlock = new MaterialPropertyBlock();
+        m_floatBufferPropertyID = Shader.PropertyToID(FLOAT_BUFFER);
+        m_floatBufferSizeXPropertyID = Shader.PropertyToID(FLOAT_BUFFER_SIZE_X);
+
+        m_baseMapPropertyID = Shader.PropertyToID(BASE_MAP);
+
+        m_gradientPropertyID = Shader.PropertyToID(GRADIENT);
+        m_gradientSizePropertyID = Shader.PropertyToID(GRADIENT_SIZE);
+
+        m_rendererPropertyBlock = new MaterialPropertyBlock();
+        m_terrainMaterialPropertyBlock = new MaterialPropertyBlock();
+
+        m_terrain.materialTemplate = m_terrainMaterial;
 
         m_recorder = new ScriptExecutionTimeRecorder();
+
+        int resolution = m_terrain.terrainData.heightmapResolution;
+        m_textureSize = new Vector2Int(resolution - 1, resolution - 1);
 
         UpdateShaderProperty();
     }
@@ -63,37 +149,15 @@ public class PerlinNoiseController : MonoBehaviour
     private void OnDestroy()
     {
         m_resultBuffer.Release();
+        m_noiseLayersBuffer.Release();
+        m_gradientBuffer.Release();
     }
 
     public void UpdateShaderProperty()
     {
         m_recorder.Reset();
 
-        Vector2Int gradientSize = new Vector2Int(
-            Mathf.CeilToInt((float)m_textureSize.x / m_noiseScale),
-            Mathf.CeilToInt((float)m_textureSize.x / m_noiseScale));
-
-        Debug.LogError($"GradientSize : {gradientSize}");
-        Debug.LogError($"NoiseScale : {m_noiseScale}");
-
-        m_targetTexture = new RenderTexture(m_textureSize.x, m_textureSize.y, 32/*, RenderTextureFormat.RFloat*/);
-        m_targetTexture.enableRandomWrite = true;
-
-        m_recorder.AddEvent("RenderTexture creation");
-
-        m_resultBuffer?.Release();
-        m_resultBuffer = new ComputeBuffer(m_textureSize.x * m_textureSize.y, sizeof(float));
-        m_perlinNoiseShader.SetBuffer(m_kernelID, m_resultBufferPropertyID, m_resultBuffer);
-
-        m_perlinNoiseShader.SetTexture(m_kernelID, m_resultPropertyID, m_targetTexture);
-        m_perlinNoiseShader.SetBool(m_smootherStepPropertyID, m_useSmootherStep);
-
-        m_perlinNoiseShader.SetInt(m_resultBufferSizeXPropertyID, m_textureSize.x);
-
-        m_perlinNoiseShader.SetInt(m_gradientSizeXPropertyID, gradientSize.x);
-        m_perlinNoiseShader.SetInt(m_gradientSizeYPropertyID, gradientSize.y);
-
-        m_perlinNoiseShader.SetInt(m_gradientOffsetPropertyID, m_gradientOffset);
+        SetShaderProperties();
 
         m_recorder.AddEvent("Shader properties assignation");
 
@@ -103,30 +167,88 @@ public class PerlinNoiseController : MonoBehaviour
 
         m_recorder.AddEvent("Shader Dispatch");
 
-        m_renderer.material.mainTexture = m_targetTexture;
-
         float[] result = new float[m_textureSize.x * m_textureSize.y];
         m_resultBuffer.GetData(result);
 
         m_recorder.AddEvent("Data acquisition from shader");
 
         float[,] terrainDatas = new float[m_textureSize.x, m_textureSize.y];
-        for (int i = 0; i < m_textureSize.x * m_textureSize.y; i++)
-        {
-            terrainDatas[i % m_textureSize.x, i / m_textureSize.x] = result[i];
-        }
+
+        Buffer.BlockCopy(result, 0, terrainDatas, 0, result.Length * sizeof(float));
 
         m_recorder.AddEvent("Buffer un-flattening");
+
+        m_renderer.GetPropertyBlock(m_rendererPropertyBlock);
+        m_rendererPropertyBlock.SetInt(m_floatBufferSizeXPropertyID, m_textureSize.x);
+        m_rendererPropertyBlock.SetBuffer(m_floatBufferPropertyID, m_resultBuffer);
+        m_renderer.SetPropertyBlock(m_rendererPropertyBlock);
+
+        m_resultTexture.SaveRenderTexture("TestTex");
+        m_recorder.AddEvent("Renderer things");
 
         m_terrain.terrainData.heightmapResolution = m_textureSize.y + 1;
         m_terrain.terrainData.SetHeights(0, 0, terrainDatas);
 
-        m_recorder.AddEvent("Terrain height set");
+        m_terrain.GetSplatMaterialPropertyBlock(m_terrainMaterialPropertyBlock);
+        m_terrainMaterialPropertyBlock.SetTexture(m_baseMapPropertyID, m_resultTexture);
+        m_terrain.SetSplatMaterialPropertyBlock(m_terrainMaterialPropertyBlock);
+
+        m_recorder.AddEvent("Terrain height set and texture");
 
         m_terrain.Flush();
         m_recorder.AddEvent("Terrain Flush");
 
         m_recorder.LogAllEventsTimeSpan();
+    }
+
+    private void SetShaderProperties()
+    {
+        GPUNoiseLayer[] gpuNoiseLayers = m_noiseLayers
+            .Where(layer => layer.Enabled)
+            .Select(layer => layer.ToGPUNoiseLayer(m_textureSize))
+            .ToArray();
+        int layerCount = gpuNoiseLayers.Length;
+        float weightMultiplier = 1.0f / gpuNoiseLayers.Select(layer => layer.LayerWeigth).Sum();
+
+        // Result Buffer
+        m_resultBuffer?.Release();
+        m_resultBuffer = new ComputeBuffer(m_textureSize.x * m_textureSize.y, sizeof(float));
+        m_perlinNoiseShader.SetBuffer(m_kernelID, m_resultBufferPropertyID, m_resultBuffer);
+
+        m_perlinNoiseShader.SetInt(m_resultBufferSizeXPropertyID, m_textureSize.x);
+
+        // Result Texture
+        m_resultTexture = new RenderTexture(m_textureSize.x, m_textureSize.y, 0, m_renderTexFormat);
+        m_resultTexture.enableRandomWrite = true;
+        m_perlinNoiseShader.SetTexture(m_kernelID, m_resultTexturePropertyID, m_resultTexture);
+
+        // Layers
+        m_perlinNoiseShader.SetInt(m_noiseLayerCountPropertyID, layerCount);
+
+        m_noiseLayersBuffer?.Release();
+        m_noiseLayersBuffer = new ComputeBuffer(m_textureSize.x * m_textureSize.y, Marshal.SizeOf(typeof(GPUNoiseLayer)));
+        m_noiseLayersBuffer.SetData(gpuNoiseLayers);
+        m_perlinNoiseShader.SetBuffer(m_kernelID, m_noiseLayersPropertyID, m_noiseLayersBuffer);
+
+        m_perlinNoiseShader.SetFloat(m_noiseWeightsMultiplierPropertyID, weightMultiplier);
+
+        // Gradient
+        m_gradientBuffer?.Release();
+        m_gradientBuffer = new ComputeBuffer(m_colorGradient.colorKeys.Length, 5 * sizeof(float));
+        float[] managedBuffer = new float[5 * m_colorGradient.colorKeys.Length];
+
+        int i = 0;
+        foreach (GradientColorKey key in m_colorGradient.colorKeys)
+        {
+            managedBuffer[i++] = key.time;
+            managedBuffer[i++] = key.color.r;
+            managedBuffer[i++] = key.color.g;
+            managedBuffer[i++] = key.color.b;
+            managedBuffer[i++] = key.color.a;
+        }
+        m_gradientBuffer.SetData(managedBuffer);
+        m_perlinNoiseShader.SetBuffer(m_kernelID, m_gradientPropertyID, m_gradientBuffer);
+        m_perlinNoiseShader.SetInt(m_gradientSizePropertyID, m_colorGradient.colorKeys.Length);
     }
 
     //private Vector2Int FillGradientBuffer()
