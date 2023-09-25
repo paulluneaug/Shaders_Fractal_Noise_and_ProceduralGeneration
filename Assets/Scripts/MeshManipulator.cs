@@ -11,19 +11,19 @@ public class MeshManipulator : MonoBehaviour
 
     [NonSerialized] private Mesh m_mesh;
     [NonSerialized] private Mesh m_savedMesh = null;
+    [NonSerialized] Vector3[] m_previousVertices;
+    [NonSerialized] Vector3[] m_savedVertices;
 
     [NonSerialized] private float m_previousLerpT = 1.0f;
 
     public void MakeCubeIntoShere(float t)
     {
         Initialize();
-        Vector3[] vertices = m_mesh.vertices;
-        Vector3[] savedVertices = m_savedMesh.vertices;
-        for (int i = 0; i < vertices.Length; i++)
+        for (int i = 0; i < m_previousVertices.Length; i++)
         {
-            vertices[i] = Vector3.Lerp(savedVertices[i], vertices[i].normalized * m_sphereRadius, t);
+            m_previousVertices[i] = Vector3.Lerp(m_savedVertices[i], m_previousVertices[i].normalized * m_sphereRadius, t);
         }
-        m_mesh.vertices = vertices;
+        m_mesh.vertices = m_previousVertices;
         m_mesh.UploadMeshData(false);
     }
 
@@ -54,6 +54,8 @@ public class MeshManipulator : MonoBehaviour
         {
             m_savedMesh = m_filter.mesh;
             m_mesh = DuplicateMesh(m_savedMesh);
+            m_savedVertices = m_savedMesh.vertices;
+            m_previousVertices = m_mesh.vertices;
         }
         m_filter.mesh = m_mesh;
     }
