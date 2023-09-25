@@ -115,11 +115,11 @@ float RandomFloat(inout uint seed)
 
 float3 RandomFloat3InsideUnitSphere(inout int seed)
 {
-    float3 attempt = float3(RandomFloat(seed), RandomFloat(seed), RandomFloat(seed));
-    while (attempt.x * attempt.x + attempt.y * attempt.y + attempt.z * attempt.z > 1)
+    float3 attempt;
+    do
     {
-        float3 attempt = float3(RandomFloat(seed), RandomFloat(seed), RandomFloat(seed));
-    }
+        attempt = float3(RandomFloat(seed), RandomFloat(seed), RandomFloat(seed));
+    } while (attempt.x * attempt.x + attempt.y * attempt.y + attempt.z * attempt.z > 1);
     return attempt;
 }
 
