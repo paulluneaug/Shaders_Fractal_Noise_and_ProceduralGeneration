@@ -328,9 +328,10 @@ static const int _TriangleTable[256][12] =
 
 RWTexture3D<float> _NoiseTexture;
 
-RWStructuredBuffer<CubeMesh> _ResultMeshs;
+RWStructuredBuffer<CubeMesh> _ResultMeshes;
 
 int3 _ZoneToGenerateSize;
+int3 _Offset;
 
 float _Threshold;
 
@@ -438,9 +439,9 @@ float ComputeNoiseForCoordinates(uint ix, uint iy, uint iz)
         int offset = currentLayer.GradientOffset;
         bool smootherstep = currentLayer.UseSmootherStep == 1;
         
-        float x = float(ix) / ceil((float) (_ZoneToGenerateSize.x + 1) / noiseScale);
-        float y = float(iy) / ceil((float) (_ZoneToGenerateSize.y + 1) / noiseScale);
-        float z = float(iz) / ceil((float) (_ZoneToGenerateSize.z + 1) / noiseScale);
+        float x = float(ix) / noiseScale;
+        float y = float(iy) / noiseScale;
+        float z = float(iz) / noiseScale;
     
         // Determine grid cell coordinates
         int x0 = int(floor(x));
@@ -511,7 +512,7 @@ uint BoolBytesToInt(bool boolArray[8] /*bool b0, bool b1, bool b2, bool b3, bool
 [numthreads(8, 8, 8)]
 void ComputeNoise(uint3 id : SV_DispatchThreadID)
 {
-    float value = ComputeNoiseForCoordinates(id.x, id.y, id.z);
+    float value = ComputeNoiseForCoordinates(id.x + _Offset.x, id.y + _Offset.y, id.z + _Offset.z);
     _NoiseTexture[id.xyz] = value;
 }
 
@@ -560,5 +561,5 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
     
     mesh.Vertices = meshVertices;
     mesh.Triangles = meshTriangles;
-    _ResultMeshs[index] = mesh;
+    _ResultMeshes[index] = mesh;
 }
