@@ -15,14 +15,12 @@ public class PerlinNoise3DController : MonoBehaviour
         public int GradientOffset;
         public float LayerWeight;
 
-        public GPUNoiseLayer3D ToGPUNoiseLayer(int textureDimension)
+        public GPUNoiseLayer3D ToGPUNoiseLayer()
         {
             return new GPUNoiseLayer3D(
                 LayerWeight,
                 GradientOffset,
-                Mathf.CeilToInt((float)textureDimension / NoiseScale),
-                Mathf.CeilToInt((float)textureDimension / NoiseScale),
-                Mathf.CeilToInt((float)textureDimension / NoiseScale),
+                NoiseScale,
                 UseSmootherStep ? 1 : 0);
         }
     }
@@ -33,19 +31,15 @@ public class PerlinNoise3DController : MonoBehaviour
         public float LayerWeigth;
         
         public int GradientOffset;
-        public int GradientSizeX;
-        public int GradientSizeY;
-        public int GradientSizeZ;
+        public int NoiseScale;
 
         public int UseSmootherStep;
 
-        public GPUNoiseLayer3D(float layerWeigth, int gradientOffset, int gradientSizeX, int gradientSizeY, int gradientSizeZ, int useSmootherStep)
+        public GPUNoiseLayer3D(float layerWeigth, int gradientOffset, int noiseScale, int useSmootherStep)
         {
             LayerWeigth = layerWeigth;
             GradientOffset = gradientOffset;
-            GradientSizeX = gradientSizeX;
-            GradientSizeY = gradientSizeY;
-            GradientSizeZ = gradientSizeZ;
+            NoiseScale = noiseScale;
             UseSmootherStep = useSmootherStep;
         }
     }
@@ -175,7 +169,7 @@ public class PerlinNoise3DController : MonoBehaviour
     {
         GPUNoiseLayer3D[] gpuNoiseLayers = m_noiseLayers
             .Where(layer => layer.Enabled)
-            .Select(layer => layer.ToGPUNoiseLayer(m_textureDimension))
+            .Select(layer => layer.ToGPUNoiseLayer())
             .ToArray();
         int layerCount = gpuNoiseLayers.Length;
         float weightMultiplier = 1.0f / gpuNoiseLayers.Select(layer => layer.LayerWeigth).Sum();

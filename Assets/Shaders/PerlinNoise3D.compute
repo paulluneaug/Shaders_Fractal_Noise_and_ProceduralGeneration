@@ -6,9 +6,7 @@ struct NoiseLayer3D
     float LayerWeigth;
     
     int GradientOffset;
-    int GradientSizeX;
-    int GradientSizeY;
-    int GradientSizeZ;
+    int NoiseScale;
     
     int UseSmootherStep;
 };
@@ -158,30 +156,13 @@ void PerlinNoise3D(uint3 id : SV_DispatchThreadID)
 {
     float value = 0;
     
-    // float2 center = float2(0.5f, 0.5f) * _ResultBufferSizeX;
-    // float distToCenter = length(float2(id.x, id.y) - center);
-    // float radius = _ResultBufferSizeX * 0.5f;
-    // if (distToCenter > radius)
-    // {
-    //     value = 0;
-    // }
-    // else
-    // {
-    //     float hypo = sqrt(pow(radius * 0.6, 2) * 2);
-    //     float angle = acos(distToCenter / hypo);
-    //     value = abs(sin(angle)) % 1;
-    // }
-    // _ResultBuffer[id.x + id.y * _ResultBufferSizeX] = value;
-    // _ResultTexture[id.xy] = SampleColor(value);
-    // return;
-    
     for (uint i = 0; i < _NoiseLayersCount; i++)
     {
         NoiseLayer3D currentLayer = _NoiseLayers[i];
         
-        float x = float(id.x) / currentLayer.GradientSizeX;
-        float y = float(id.y) / currentLayer.GradientSizeY;
-        float z = float(id.z) / currentLayer.GradientSizeZ;
+        float x = float(id.x) / currentLayer.NoiseScale;
+        float y = float(id.y) / currentLayer.NoiseScale;
+        float z = float(id.z) / currentLayer.NoiseScale;
     
         // Determine grid cell coordinates
         int x0 = int(floor(x));
