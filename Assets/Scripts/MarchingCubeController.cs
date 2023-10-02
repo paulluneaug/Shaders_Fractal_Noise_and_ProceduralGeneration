@@ -64,7 +64,7 @@ public class MarchingCubeController : MonoBehaviour
     private const string THRESHOLD = "_Threshold";
 
     private const string NOISE_LAYERS = "_NoiseLayers";
-    private const string NOISE_LAYERS_COUNT = "_NoiseLayers";
+    private const string NOISE_LAYERS_COUNT = "_NoiseLayersCount";
     private const string NOISE_WEIGHTS_MULTIPLIER = "_NoiseWeigthsMultiplier";
 
     [SerializeField] private ComputeShader m_marchingCubeCS = null;
@@ -75,6 +75,8 @@ public class MarchingCubeController : MonoBehaviour
     [SerializeField, Range(0.0f, 1.0f)] private float m_threshold = 0.5f;
 
     [SerializeField] private NoiseLayer3D[] m_noiseLayers = null;
+
+    [SerializeField] private Material m_material = null;
 
     // Cache
     [NonSerialized] private int m_noiseKernelID = 0;
@@ -98,6 +100,8 @@ public class MarchingCubeController : MonoBehaviour
     [NonSerialized] private ComputeBuffer m_resultMeshesBuffer = null;
     [NonSerialized] private ComputeBuffer m_noiseLayersBuffer = null;
 
+    [NonSerialized] private Transform m_transform = null;
+
     private void Awake()
     {
         m_noiseKernelID = m_marchingCubeCS.FindKernel(NOISE_KERNEL_NAME);
@@ -116,6 +120,8 @@ public class MarchingCubeController : MonoBehaviour
         m_noiseWeightsMultiplierPropertyID = Shader.PropertyToID(NOISE_WEIGHTS_MULTIPLIER);
 
         m_recorder = new ScriptExecutionTimeRecorder();
+
+        m_transform = transform;
 
         UpdateShaderProperty();
     }
@@ -206,8 +212,14 @@ public class MarchingCubeController : MonoBehaviour
         Vector3Int coordinates = GetCoordinatesFromIndex(index);
         Vector3 meshPos = m_offset + coordinates;
         GameObject go = new GameObject($"Mesh_{index}{meshPos}");
-        go.transform.position = meshPos;
-        go.AddComponent<MeshRenderer>();
+        Transform t = go.transform;
+        t.position = meshPos;
+
+        t.parent = m_transform;
+
+        MeshRenderer renderer = go.AddComponent<MeshRenderer>();
+        renderer.material = m_material;
+
         MeshFilter filter = go.AddComponent<MeshFilter>();
 
         Mesh mesh = new Mesh();
@@ -220,6 +232,10 @@ public class MarchingCubeController : MonoBehaviour
 
     private Vector3Int GetCoordinatesFromIndex(int index)
     {
-        return Vector3Int.zero;
+        int z = index / (m_zoneToGenerateSize.x * m_zoneToGenerateSize.y);
+        int indexY = index % (m_zoneToGenerateSize.x * m_zoneToGenerateSize.y);
+        int y = indexY / m_zoneToGenerateSize.x;
+        int x = indexY % m_zoneToGenerateSize.x;
+        return new Vector3Int(x, y, z);
     }
 }
