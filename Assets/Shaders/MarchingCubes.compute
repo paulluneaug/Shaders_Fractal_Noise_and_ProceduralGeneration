@@ -1,22 +1,8 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel ComputeNoise
 #pragma kernel MarchingCubes
+#pragma kernel SimplifyMeshes
 
-struct NoiseLayer3D
-{
-    float LayerWeigth;
-    
-    int GradientOffset;
-    int NoiseScale;
-    
-    int UseSmootherStep;
-};
-
-struct CubeMesh
-{
-    float3 Vertices[12];
-    int Triangles[12];
-};
 
 // Consts
 static const float3 _EmptyVertice = float3(-1, -1, -1);
@@ -326,12 +312,39 @@ static const int _TriangleTable[256][12] =
     { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
 };
 
+static const uint CHUNK_SIZE = 16;
+
+//structs
+struct NoiseLayer3D
+{
+    float LayerWeigth;
+    
+    int GradientOffset;
+    int NoiseScale;
+    
+    int UseSmootherStep;
+};
+
+struct CubeMesh
+{
+    float3 Vertices[12];
+    int Triangles[12];
+};
+
+struct ChunkMesh
+{
+    float3 Vertices[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+    int Triangles[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+};
+
+
 RWTexture3D<float> _NoiseTexture;
 
 RWStructuredBuffer<CubeMesh> _ResultMeshes;
+RWStructuredBuffer<ChunkMesh> _ResultChunks;
 
-int3 _ZoneToGenerateSize;
-int3 _Offset;
+int3 _ChunkZoneSizeToGenerate;
+int3 _ChunkOffset;
 
 float _Threshold;
 
@@ -488,28 +501,20 @@ float ComputeNoiseForCoordinates(uint ix, uint iy, uint iz)
     return value;
 }
 
-uint UintPow(uint x, uint pow)
-{
-    uint result = 1;
-    while (pow > 0)
-    {
-        result *= x;
-        pow--;
-    }
-    return result;
-}
 
 [numthreads(8, 8, 8)]
 void ComputeNoise(uint3 id : SV_DispatchThreadID)
 {
-    float value = ComputeNoiseForCoordinates(id.x + _Offset.x, id.y + _Offset.y, id.z + _Offset.z);
+    uint3 offset = _ChunkOffset * CHUNK_SIZE;
+    float value = ComputeNoiseForCoordinates(id.x + offset.x, id.y + offset.y, id.z + offset.z);
     _NoiseTexture[id.xyz] = value;
 }
 
 [numthreads(8, 8, 8)]
 void MarchingCubes(uint3 id : SV_DispatchThreadID)
 {
-    uint index = id.x + id.y * _ZoneToGenerateSize.x + id.z * _ZoneToGenerateSize.x * _ZoneToGenerateSize.y;
+    uint3 zoneToGenerateSize = _ChunkZoneSizeToGenerate * CHUNK_SIZE;
+    uint index = id.x + id.y * zoneToGenerateSize.x + id.z * zoneToGenerateSize.x * zoneToGenerateSize.y;
     CubeMesh mesh;
     float3 meshVertices[12] = _DefaultVertices;
     int meshTriangles[12] = _DefaultTriangles;
@@ -520,7 +525,7 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
     {
         if (_NoiseTexture[id.xyz + _VerticesCoordinates[i]] < _Threshold)
         {
-            meshIndex |= UintPow(2, i);
+            meshIndex |= 1 << i;
         }
     }
     
@@ -555,4 +560,10 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
     mesh.Vertices = meshVertices;
     mesh.Triangles = meshTriangles;
     _ResultMeshes[index] = mesh;
+}
+
+[numthreads(8,8,8)]
+void SimplifyMeshes(uint3 id : SV_DispatchThreadID)
+{
+    
 }
