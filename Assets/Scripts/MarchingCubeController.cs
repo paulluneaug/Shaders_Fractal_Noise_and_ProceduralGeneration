@@ -4,8 +4,12 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Rendering;
 
+using static Constants;
+using static MeshStructs;
+
 public class MarchingCubeController : MonoBehaviour
 {
+    #region Structs
     [Serializable]
     private struct NoiseLayer3D
     {
@@ -45,12 +49,9 @@ public class MarchingCubeController : MonoBehaviour
         }
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    private struct CubeMesh
-    {
-        public FixedSizeArray<Vector3> Vertices;
-        public FixedSizeArray<int> Triangles;
-    }
+    #endregion
+
+
 
     private const string NOISE_KERNEL_NAME = "ComputeNoise";
     private const string MARCHING_CUBE_KERNEL_NAME = "MarchingCubes";
@@ -58,19 +59,24 @@ public class MarchingCubeController : MonoBehaviour
     private const string NOISE_TEXTURE = "_NoiseTexture";
     private const string RESULT_MESHES = "_ResultMeshes";
 
-    private const string ZONE_TO_GENERATE_SIZE = "_ZoneToGenerateSize";
-    private const string OFFSET = "_Offset";
+    private const string CHUNK_ZONE_TO_GENERATE_SIZE = "_ChunkZoneSizeToGenerate";
+    private const string CHUNK_OFFSET = "_ChunkOffset";
 
     private const string THRESHOLD = "_Threshold";
 
-    private const string NOISE_LAYERS = "_NoiseLayers";
     private const string NOISE_LAYERS_COUNT = "_NoiseLayersCount";
+    private const string NOISE_LAYERS = "_NoiseLayers";
     private const string NOISE_WEIGHTS_MULTIPLIER = "_NoiseWeigthsMultiplier";
+
+    private Vector3Int CellOffset => m_chunkOffset * CHUNK_SIZE;
+
+    private Vector3Int CellsToGenerateSize => m_chunkZoneSizeToGenerate * CHUNK_SIZE;
+
 
     [SerializeField] private ComputeShader m_marchingCubeCS = null;
 
-    [SerializeField] private Vector3Int m_offset = Vector3Int.zero;
-    [SerializeField] private Vector3Int m_zoneToGenerateSize = Vector3Int.one * 64;
+    [SerializeField] private Vector3Int m_chunkOffset = Vector3Int.zero;
+    [SerializeField] private Vector3Int m_chunkZoneSizeToGenerate = Vector3Int.one * 4;
 
     [SerializeField, Range(0.0f, 1.0f)] private float m_threshold = 0.5f;
 
@@ -85,8 +91,8 @@ public class MarchingCubeController : MonoBehaviour
     [NonSerialized] private int m_noiseTexturePropertyID = 0;
     [NonSerialized] private int m_resultMeshesPropertyID = 0;
 
-    [NonSerialized] private int m_zoneToGenerateSizePropertyID = 0;
-    [NonSerialized] private int m_offsetPropertyID = 0;
+    [NonSerialized] private int m_chunkZoneSizeToGeneratePropertyID = 0;
+    [NonSerialized] private int m_chunkOffsetPropertyID = 0;
 
     [NonSerialized] private int m_thresholdID = 0;
 
@@ -110,8 +116,8 @@ public class MarchingCubeController : MonoBehaviour
         m_noiseTexturePropertyID = Shader.PropertyToID(NOISE_TEXTURE);
         m_resultMeshesPropertyID = Shader.PropertyToID(RESULT_MESHES);
 
-        m_zoneToGenerateSizePropertyID = Shader.PropertyToID(ZONE_TO_GENERATE_SIZE);
-        m_offsetPropertyID = Shader.PropertyToID(OFFSET);
+        m_chunkZoneSizeToGeneratePropertyID = Shader.PropertyToID(CHUNK_ZONE_TO_GENERATE_SIZE);
+        m_chunkOffsetPropertyID = Shader.PropertyToID(CHUNK_OFFSET);
 
         m_thresholdID = Shader.PropertyToID(THRESHOLD);
 
@@ -134,21 +140,21 @@ public class MarchingCubeController : MonoBehaviour
 
         m_recorder.AddEvent("Shader properties assignation");
 
-        int groupX = Mathf.CeilToInt(m_zoneToGenerateSize.x + 1 / 8.0f);
-        int groupY = Mathf.CeilToInt(m_zoneToGenerateSize.y + 1 / 8.0f);
-        int groupZ = Mathf.CeilToInt(m_zoneToGenerateSize.z + 1 / 8.0f);
+        int groupX = Mathf.CeilToInt(CellsToGenerateSize.x + 1 / 8.0f);
+        int groupY = Mathf.CeilToInt(CellsToGenerateSize.y + 1 / 8.0f);
+        int groupZ = Mathf.CeilToInt(CellsToGenerateSize.z + 1 / 8.0f);
         m_marchingCubeCS.Dispatch(m_noiseKernelID, groupX, groupY, groupZ);
 
         m_recorder.AddEvent("Noise Shader Dispatch");
 
-        groupX = Mathf.CeilToInt(m_zoneToGenerateSize.x / 8.0f);
-        groupY = Mathf.CeilToInt(m_zoneToGenerateSize.y / 8.0f);
-        groupZ = Mathf.CeilToInt(m_zoneToGenerateSize.z / 8.0f);
+        groupX = Mathf.CeilToInt(CellsToGenerateSize.x / 8.0f);
+        groupY = Mathf.CeilToInt(CellsToGenerateSize.y / 8.0f);
+        groupZ = Mathf.CeilToInt(CellsToGenerateSize.z / 8.0f);
         m_marchingCubeCS.Dispatch(m_marchingCubeKernelID, groupX, groupY, groupZ);
 
         m_recorder.AddEvent("Marching cubes Shader Dispatch");
 
-        CubeMesh[] result = new CubeMesh[m_zoneToGenerateSize.x * m_zoneToGenerateSize.y * m_zoneToGenerateSize.z];
+        CubeMesh[] result = new CubeMesh[CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z];
         m_resultMeshesBuffer.GetData(result);
         m_recorder.AddEvent("Data acquisition from shader");
 
@@ -170,18 +176,18 @@ public class MarchingCubeController : MonoBehaviour
 
         // Meshes Buffer
         m_resultMeshesBuffer?.Release();
-        m_resultMeshesBuffer = new ComputeBuffer(m_zoneToGenerateSize.x * m_zoneToGenerateSize.y * m_zoneToGenerateSize.z, Marshal.SizeOf(typeof(CubeMesh)));
+        m_resultMeshesBuffer = new ComputeBuffer(CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z, Marshal.SizeOf(typeof(CubeMesh)));
         m_marchingCubeCS.SetBuffer(m_marchingCubeKernelID, m_resultMeshesPropertyID, m_resultMeshesBuffer);
 
         // Other variables
         m_marchingCubeCS.SetFloat(m_thresholdID, m_threshold);
-        m_marchingCubeCS.SetInts(m_zoneToGenerateSizePropertyID, m_zoneToGenerateSize.x, m_zoneToGenerateSize.y, m_zoneToGenerateSize.z);
-        m_marchingCubeCS.SetInts(m_offsetPropertyID, m_offset.x, m_offset.y, m_offset.z);
+        m_marchingCubeCS.SetInts(m_chunkZoneSizeToGeneratePropertyID, m_chunkZoneSizeToGenerate.x, m_chunkZoneSizeToGenerate.y, m_chunkZoneSizeToGenerate.z);
+        m_marchingCubeCS.SetInts(m_chunkOffsetPropertyID, m_chunkOffset.x, m_chunkOffset.y, m_chunkOffset.z);
 
         // Noise Texture
-        m_noiseTexture = new RenderTexture(m_zoneToGenerateSize.x + 1, m_zoneToGenerateSize.y + 1, 0, RenderTextureFormat.RFloat);
+        m_noiseTexture = new RenderTexture(CellsToGenerateSize.x + 1, CellsToGenerateSize.y + 1, 0, RenderTextureFormat.RFloat);
         m_noiseTexture.dimension = TextureDimension.Tex3D;
-        m_noiseTexture.volumeDepth = m_zoneToGenerateSize.z + 1;
+        m_noiseTexture.volumeDepth = CellsToGenerateSize.z + 1;
         m_noiseTexture.enableRandomWrite = true;
 
         m_marchingCubeCS.SetTexture(m_noiseKernelID, m_noiseTexturePropertyID, m_noiseTexture);
@@ -210,7 +216,7 @@ public class MarchingCubeController : MonoBehaviour
     private void CreateMesh(CubeMesh cubeMesh, int index)
     {
         Vector3Int coordinates = GetCoordinatesFromIndex(index);
-        Vector3 meshPos = m_offset + coordinates;
+        Vector3 meshPos = CellOffset + coordinates;
         GameObject go = new GameObject($"Mesh_{index}{meshPos}");
         Transform t = go.transform;
         t.position = meshPos;
@@ -225,17 +231,17 @@ public class MarchingCubeController : MonoBehaviour
         Mesh mesh = new Mesh();
 
         Vector3 emptyVect = -Vector3.one;
-        mesh.vertices = cubeMesh.Vertices.GetArray().Where(v => v != emptyVect).ToArray();
-        mesh.triangles = cubeMesh.Triangles.GetArray().Where(v => v != -1).ToArray();
+        mesh.vertices = cubeMesh.GetVertices();
+        mesh.triangles = cubeMesh.GetTriangles();
         filter.mesh = mesh;
     }
 
     private Vector3Int GetCoordinatesFromIndex(int index)
     {
-        int z = index / (m_zoneToGenerateSize.x * m_zoneToGenerateSize.y);
-        int indexY = index % (m_zoneToGenerateSize.x * m_zoneToGenerateSize.y);
-        int y = indexY / m_zoneToGenerateSize.x;
-        int x = indexY % m_zoneToGenerateSize.x;
+        int z = index / (CellsToGenerateSize.x * CellsToGenerateSize.y);
+        int indexY = index % (CellsToGenerateSize.x * CellsToGenerateSize.y);
+        int y = indexY / CellsToGenerateSize.x;
+        int x = indexY % CellsToGenerateSize.x;
         return new Vector3Int(x, y, z);
     }
 }
