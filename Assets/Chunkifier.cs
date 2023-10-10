@@ -83,7 +83,9 @@ public class Chunkifier : MonoBehaviour
                         {
                             for (int iz = 0; iz < m_chunkSize; iz++)
                             {
-                                m_datas[x * m_chunkSize + ix, y * m_chunkSize + iy, z * m_chunkSize + iz] = m_colors[x + y * m_chunkSpan.x + z * m_chunkSpan.x * m_chunkSpan.y];
+                                (int x, int y, int z) coords = (x * m_chunkSize + ix, y * m_chunkSize + iy, z * m_chunkSize + iz);
+                                float colorFactor = Mathf.Lerp(1.0f, 0.4f, m_utils.LocalCoordinatesToLocalOffset(m_utils.CoordinatesToLocalCoordinates(coords)) / (float)m_utils.ChunkVolume);
+                                m_datas[coords.x, coords.y, coords.z] = m_colors[x + y * m_chunkSpan.x + z * m_chunkSpan.x * m_chunkSpan.y] * colorFactor;
                             }
                         }
                     }
@@ -106,7 +108,7 @@ public class Chunkifier : MonoBehaviour
             {
                 for (int z = 0; z < m_datasSize.z; z++)
                 {
-                    CreateCube(x, y, z, m_datas[x, y, z], cubesParent);
+                    CreateCube(x, y, z, m_datas[x, y, z], cubesParent, $"Cube_{m_utils.CoordinatesToIndex((x, y, z))}");
                 }
             }
         }
@@ -136,8 +138,7 @@ public class Chunkifier : MonoBehaviour
             {
                 for (int z = 0; z < m_datasSize.z; z++)
                 {
-                    float colorFactor = Mathf.Lerp(1.0f, 0.4f, m_utils.LocalCoordinatesToLocalOffset(m_utils.CoordinatesToLocalCoordinates((x, y, z))) / (float)m_utils.ChunkVolume);
-                    m_chunkifiedFlatDatas[m_utils.CoordinatesToIndex((x, y, z))] = m_datas[x, y, z] * colorFactor;
+                    m_chunkifiedFlatDatas[m_utils.CoordinatesToIndex((x, y, z))] = m_datas[x, y, z];
                 }
             }
         }
@@ -153,7 +154,7 @@ public class Chunkifier : MonoBehaviour
 
         for (int i = 0; i < m_flatDatasLen; i++)
         {
-            CreateCube(i, 0, 0, flatDatas[i], cubesParent);
+            CreateCube(i, 0, 0, flatDatas[i], cubesParent, $"FlatCube_{i}");
         }
     }
 
@@ -163,9 +164,10 @@ public class Chunkifier : MonoBehaviour
         
     }
 
-    private void CreateCube(int x, int y, int z, Color color, Transform parent)
+    private void CreateCube(int x, int y, int z, Color color, Transform parent, string name)
     {
         Renderer newCube = Instantiate(m_cubePrefab);
+        newCube.name = name;
         Transform t = newCube.transform;
         t.parent = parent;
         t.localPosition = new Vector3(x, y, z);
