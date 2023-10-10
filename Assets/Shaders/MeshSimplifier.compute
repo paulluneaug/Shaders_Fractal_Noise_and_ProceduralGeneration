@@ -1,0 +1,39 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel ChunkifyMeshes
+#pragma kernel SimplifyChunks
+
+static const uint CHUNK_SIZE = 16;
+
+struct CubeMesh
+{
+    float3 Vertices[12];
+    int Triangles[12];
+};
+
+struct ChunkMesh
+{
+    float3 Vertices[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+    int Triangles[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+};
+
+
+RWStructuredBuffer<CubeMesh> _ResultMeshes;
+RWStructuredBuffer<ChunkMesh> _ResultChunks;
+
+
+[numthreads(8, 8, 8)]
+void ChunkifyMeshes(uint3 id : SV_DispatchThreadID)
+{
+    
+}
+
+void SimplifyMesh(uint chunkIndex, uint meshSize, uint m0_offset, uint m1_offset, uint3 axis)
+{
+    
+}
+
+[numthreads(8, 8, 8)]
+void SimplifyChunks(uint3 id : SV_DispatchThreadID)
+{
+    
+}
