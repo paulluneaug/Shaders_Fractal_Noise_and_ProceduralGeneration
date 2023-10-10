@@ -1,7 +1,6 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel ComputeNoise
 #pragma kernel MarchingCubes
-#pragma kernel SimplifyMeshes
 
 
 // Consts
@@ -52,6 +51,7 @@ static const int2 _EdgeVertexIndices[12] =
     int2(2, 6),
 };
 
+// Triangle Table from dwilliamson (https://gist.github.com/dwilliamson/c041e3454a713e58baf6e4f8e5fffecd)
 static const int _TriangleTable[256][12] =
 {
     { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
@@ -341,7 +341,6 @@ struct ChunkMesh
 RWTexture3D<float> _NoiseTexture;
 
 RWStructuredBuffer<CubeMesh> _ResultMeshes;
-RWStructuredBuffer<ChunkMesh> _ResultChunks;
 
 int3 _ChunkZoneSizeToGenerate;
 int3 _ChunkOffset;
@@ -411,11 +410,12 @@ float3 RandomFloat3InsideUnitSphere(inout int seed)
     return attempt;
 }
 
+// Noise generation inspired by the Perlin Noise Wikipedia article (https://en.wikipedia.org/wiki/Perlin_noise)
 float3 RandomGradient(int ix, int iy, int iz, int gradientOffset)
 {
     // No precomputed gradients mean this works for any number of grid coordinates
     uint w = 8 * 4;
-    uint s = w / 2; // rotation width
+    uint s = w / 2;
     uint a = ix, b = iy, c = iz;
     a *= 3284157443;
     b ^= a << s | a >> w - s;
@@ -519,7 +519,7 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
     float3 meshVertices[12] = _DefaultVertices;
     int meshTriangles[12] = _DefaultTriangles;
     
-    
+    // Determine the index in _TriangleTable of the current mesh
     uint meshIndex = 0;
     for (int i = 0; i < 8; i++)
     {
@@ -560,10 +560,4 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
     mesh.Vertices = meshVertices;
     mesh.Triangles = meshTriangles;
     _ResultMeshes[index] = mesh;
-}
-
-[numthreads(8,8,8)]
-void SimplifyMeshes(uint3 id : SV_DispatchThreadID)
-{
-    
 }
