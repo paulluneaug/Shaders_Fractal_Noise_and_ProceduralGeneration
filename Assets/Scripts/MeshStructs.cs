@@ -24,19 +24,17 @@ public static class MeshStructs
             Marshal.Copy(verticesPtr, rawValues, 0, 3 * verticesCount);
 
             int size = 0;
-            for (; size < verticesCount; size++)
+            for (; size < verticesCount; ++size)
             {
-                if (rawValues[size] == -1)
+                if (rawValues[size * 3] == -1)
                 {
                     break;
                 }
             }
 
-            int resultSize = size / 3;
-            Debug.Log($"MemCopy : Size = {size} | Len = {resultSize}");
-            Vector3[] result = new Vector3[resultSize];
+            Vector3[] result = new Vector3[size];
 
-            if (resultSize == 0)
+            if (size == 0)
             {
                 return result;
             }
@@ -44,7 +42,7 @@ public static class MeshStructs
             fixed (Vector3* resultRawPtr = &result[0])
             {
                 IntPtr resultPtr = new IntPtr(resultRawPtr);
-                Marshal.Copy(rawValues, 0, resultPtr, resultSize * 3);
+                Marshal.Copy(rawValues, 0, resultPtr, size * 3);
             }
 
             //Array.Copy(rawValues, result, resultSize * 3);

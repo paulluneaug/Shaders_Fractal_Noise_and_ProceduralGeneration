@@ -228,11 +228,11 @@ public class MarchingCubeController : MonoBehaviour
 
         MeshFilter filter = go.AddComponent<MeshFilter>();
 
-        Mesh mesh = new Mesh();
-
-        Vector3 emptyVect = -Vector3.one;
-        mesh.vertices = cubeMesh.GetVertices();
-        mesh.triangles = cubeMesh.GetTriangles();
+        Mesh mesh = new Mesh
+        {
+            vertices = cubeMesh.GetVertices(),
+            triangles = cubeMesh.GetTriangles()
+        };
         filter.mesh = mesh;
     }
 
