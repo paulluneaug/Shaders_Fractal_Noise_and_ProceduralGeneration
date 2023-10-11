@@ -609,22 +609,22 @@ MonoBehaviour:
   m_threshold: 0.5
   m_noiseLayers:
   - Enabled: 1
-    NoiseScale: 2
-    UseSmootherStep: 1
-    GradientOffset: 0
-    LayerWeight: 1
-  - Enabled: 0
     NoiseScale: 32
+    UseSmootherStep: 1
+    GradientOffset: 1
+    LayerWeight: 1
+  - Enabled: 1
+    NoiseScale: 16
     UseSmootherStep: 1
     GradientOffset: 0
     LayerWeight: 0.6
-  - Enabled: 0
-    NoiseScale: 16
+  - Enabled: 1
+    NoiseScale: 8
     UseSmootherStep: 1
     GradientOffset: 3
     LayerWeight: 0.3
-  - Enabled: 0
-    NoiseScale: 8
+  - Enabled: 1
+    NoiseScale: 4
     UseSmootherStep: 1
     GradientOffset: 3
     LayerWeight: 0.2
@@ -775,7 +775,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1411985497
 MonoBehaviour:
   m_ObjectHideFlags: 0
