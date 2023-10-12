@@ -340,7 +340,7 @@ struct ChunkMesh
 
 RWTexture3D<float> _NoiseTexture;
 
-RWStructuredBuffer<CubeMesh> _ResultMeshes;
+RWStructuredBuffer<CubeMesh> _GeneratedMeshes;
 
 int3 _ChunkZoneSizeToGenerate;
 int3 _ChunkOffset;
@@ -559,5 +559,5 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
     
     mesh.Vertices = meshVertices;
     mesh.Triangles = meshTriangles;
-    _ResultMeshes[index] = mesh;
+    _GeneratedMeshes[index] = mesh;
 }
