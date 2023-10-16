@@ -209,6 +209,7 @@ public class MarchingCubeController : MonoBehaviour
 
         m_reorganizedMeshesIndexMapBuffer?.Release();
         m_reorganizedMeshesIndexMapBuffer = new ComputeBuffer(CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z, sizeof(int));
+        m_meshSimplifierCS.SetBuffer(m_chunkifyMeshesKernelID, m_reorganizedMeshesIndexMapPropertyID, m_reorganizedMeshesIndexMapBuffer);
 
     }
 

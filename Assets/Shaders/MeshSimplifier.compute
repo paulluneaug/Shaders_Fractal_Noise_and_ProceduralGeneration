@@ -95,7 +95,7 @@ int3 CoordinatesToLocalCoordinates(int3 coords)
         coords.z % CHUNK_SIZE);
 }
 
-int LocalCoordinatesToLocalOffset(int3 localCoords)
+int LocalCoordinatesToChunkifiedLocalOffset(int3 localCoords)
 {
     int cubeDim = NextPowerOfTwoExposant(max(localCoords.x, max(localCoords.y, localCoords.z)) + 1);
     int offset = 0;
@@ -136,20 +136,23 @@ int3 LocalOffsetToLocalCoordinates(int offset)
     return int3(x, y, z);
 }
 
-int CoordinatesToIndex(int3 coords)
+int CoordinatesToChunkifiedIndex(int3 coords)
 {
     int chunkIndex = CoordinatesToChunkIndex(coords);
     int chunkOffset = chunkIndex * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
     int3 localCoords = CoordinatesToLocalCoordinates(coords);
 
-    return chunkOffset + LocalCoordinatesToLocalOffset(localCoords);
+    return chunkOffset + LocalCoordinatesToChunkifiedLocalOffset(localCoords);
 }
 
 
 [numthreads(8, 8, 8)]
 void ChunkifyMeshes(uint3 id : SV_DispatchThreadID)
 {
-    
+    uint3 zoneToGenerateSize = _ChunkZoneSizeToGenerate * CHUNK_SIZE;
+    uint index = id.x + id.y * zoneToGenerateSize.x + id.z * zoneToGenerateSize.x * zoneToGenerateSize.y;
+    _ReorganizedMeshesIndexMap[index] = CoordinatesToChunkifiedIndex(id.xyz);
+
 }
 
 void SimplifyMesh(uint chunkIndex, uint meshSize, uint m0_offset, uint m1_offset, uint3 axis)
