@@ -49,7 +49,7 @@ public class ScriptExecutionTimeRecorder
         );
         m_events.Add(newEvent);
 
-        if(logImmediatly)
+        if (logImmediatly)
         {
             Debug.Log(newEvent.ToString());
         }
