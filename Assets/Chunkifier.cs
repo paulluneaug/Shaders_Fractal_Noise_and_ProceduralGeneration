@@ -84,7 +84,7 @@ public class Chunkifier : MonoBehaviour
                             for (int iz = 0; iz < m_chunkSize; iz++)
                             {
                                 (int x, int y, int z) coords = (x * m_chunkSize + ix, y * m_chunkSize + iy, z * m_chunkSize + iz);
-                                float colorFactor = Mathf.Lerp(1.0f, 0.4f, m_utils.LocalCoordinatesToLocalOffset(m_utils.CoordinatesToLocalCoordinates(coords)) / (float)m_utils.ChunkVolume);
+                                float colorFactor = Mathf.Lerp(1.0f, 0.4f, m_utils.LocalCoordinatesToChunkifiedLocalOffset(m_utils.CoordinatesToLocalCoordinates(coords)) / (float)m_utils.ChunkVolume);
                                 m_datas[coords.x, coords.y, coords.z] = m_colors[x + y * m_chunkSpan.x + z * m_chunkSpan.x * m_chunkSpan.y] * colorFactor;
                             }
                         }
@@ -108,7 +108,7 @@ public class Chunkifier : MonoBehaviour
             {
                 for (int z = 0; z < m_datasSize.z; z++)
                 {
-                    CreateCube(x, y, z, m_datas[x, y, z], cubesParent, $"Cube_{m_utils.CoordinatesToIndex((x, y, z))}");
+                    CreateCube(x, y, z, m_datas[x, y, z], cubesParent, $"Cube_{m_utils.CoordinatesToChunkifiedIndex((x, y, z))}");
                 }
             }
         }
@@ -138,7 +138,7 @@ public class Chunkifier : MonoBehaviour
             {
                 for (int z = 0; z < m_datasSize.z; z++)
                 {
-                    m_chunkifiedFlatDatas[m_utils.CoordinatesToIndex((x, y, z))] = m_datas[x, y, z];
+                    m_chunkifiedFlatDatas[m_utils.CoordinatesToChunkifiedIndex((x, y, z))] = m_datas[x, y, z];
                 }
             }
         }

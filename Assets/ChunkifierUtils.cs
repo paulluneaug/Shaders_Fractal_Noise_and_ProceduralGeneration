@@ -39,23 +39,38 @@ public class ChunkifierUtils
         return shift - (isPowerOfTwo ? 1 : 0);
     }
 
-    public int CoordinatesToIndex((int x, int y, int z) coords)
+    public int CoordinatesToChunkifiedIndex((int x, int y, int z) coords)
     {
         int chunkIndex = CoordinatesToChunkIndex(coords);
-        int chunkOffset = chunkIndex * m_chunkSize * m_chunkSize * m_chunkSize;
+        int chunkOffset = chunkIndex * m_chunkVolume;
         (int lx, int ly, int lz) = CoordinatesToLocalCoordinates(coords);
 
-        return chunkOffset + LocalCoordinatesToLocalOffset((lx, ly, lz));
+        return chunkOffset + LocalCoordinatesToChunkifiedLocalOffset((lx, ly, lz));
     }
 
-    //private Vector3Int IndexToCoordinates(int index)
-    //{
-    //    int z = index / (m_datasSize.x * m_datasSize.y);
-    //    int indexY = index % (m_datasSize.x * m_datasSize.y);
-    //    int y = indexY / m_datasSize.x;
-    //    int x = indexY % m_datasSize.x;
-    //    return new Vector3Int(x, y, z);
-    //}
+    public (int x, int y, int z) ChunkifiedOffsetToCoordinates(int chunkifiedIndex)
+    {
+        int chunkIndex = chunkifiedIndex / m_chunkVolume;
+        int localChunkifiedOffset = chunkifiedIndex % m_chunkVolume;
+
+        (int x, int y, int z) chunkOrigin = ChunkIndexToChunkOriginCoordinates(chunkIndex);
+        (int x, int y, int z) localCoordinates = ChunkifiedLocalOffsetToLocalCoordinates(localChunkifiedOffset);
+
+        return (
+            chunkOrigin.x + localCoordinates.x, 
+            chunkOrigin.y + localCoordinates.y,
+            chunkOrigin.z + localCoordinates.z);
+    }
+
+    private (int x, int y, int z) ChunkIndexToChunkOriginCoordinates(int chunkIndex)
+    {
+        int z = chunkIndex / (m_chunkSpan.x * m_chunkSpan.y);
+        int indexY = chunkIndex % (m_chunkSpan.x * m_chunkSpan.y);
+        int y = indexY / m_chunkSpan.x;
+        int x = indexY % m_chunkSpan.x;
+
+        return (x * m_chunkSize,  y * m_chunkSize, z * m_chunkSize);
+    }
 
     public int CoordinatesToChunkIndex((int x, int y, int z) coords)
     {
@@ -75,7 +90,7 @@ public class ChunkifierUtils
             coords.z % m_chunkSize);
     }
 
-    public int LocalCoordinatesToLocalOffset((int x, int y, int z) localCoords)
+    public int LocalCoordinatesToChunkifiedLocalOffset((int x, int y, int z) localCoords)
     {
         int cubeDim = NextPowerOfTwoExposant(Mathf.Max(localCoords.x, localCoords.y, localCoords.z) + 1);
         int offset = 0;
@@ -94,7 +109,7 @@ public class ChunkifierUtils
         return offset;
     }
 
-    public (int x, int y, int z) LocalOffsetToLocalCoordinates(int offset)
+    public (int x, int y, int z) ChunkifiedLocalOffsetToLocalCoordinates(int offset)
     {
         int x = 0;
         int y = 0;
