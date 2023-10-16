@@ -604,6 +604,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_marchingCubeCS: {fileID: 7200000, guid: 5542e0faeb854fd4391f4980e896af18, type: 3}
+  m_meshSimplifierCS: {fileID: 7200000, guid: 02acf3eb57c93ff43ae1a5e73cb1d922, type: 3}
   m_chunkOffset: {x: 0, y: 0, z: 0}
   m_chunkZoneSizeToGenerate: {x: 2, y: 2, z: 2}
   m_threshold: 0.5

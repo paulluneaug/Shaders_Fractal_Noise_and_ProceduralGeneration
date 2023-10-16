@@ -133,6 +133,8 @@ public class MarchingCubeController : MonoBehaviour
 
     [NonSerialized] private Transform m_transform = null;
 
+    [NonSerialized] private ChunkifierUtils m_utils;
+
     private void Awake()
     {
         GetPropertiesIDs();
@@ -193,11 +195,21 @@ public class MarchingCubeController : MonoBehaviour
 
         m_recorder.AddEvent("Marching cubes Shader Dispatch");
 
-        CubeMesh[] result = new CubeMesh[CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z];
-        m_generatedMeshesBuffer.GetData(result);
-        m_recorder.AddEvent("Data acquisition from shader");
+        m_meshSimplifierCS.Dispatch(m_chunkifyMeshesKernelID, groupX, groupY, groupZ);
 
-        GenerateMeshes(result);
+        m_recorder.AddEvent("Chunkify Mesh Shader Dispatch");
+
+        CubeMesh[] resultMeshes = new CubeMesh[CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z];
+        m_generatedMeshesBuffer.GetData(resultMeshes);
+        m_recorder.AddEvent("Mesh acquisition from shader");
+
+        int[] resultIndexMap = new int[CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z];
+        m_reorganizedMeshesIndexMapBuffer.GetData(resultIndexMap);
+
+        m_recorder.AddEvent("Mesh index map acquisition from shader");
+
+        GenerateMeshes(resultMeshes, resultIndexMap);
+
         m_recorder.AddEvent("Meshes Generation");
 
         m_recorder.LogAllEventsTimeSpan();
@@ -206,6 +218,8 @@ public class MarchingCubeController : MonoBehaviour
     private void SetMeshSimplifierShaderProperties()
     {
         m_meshSimplifierCS.SetBuffer(m_chunkifyMeshesKernelID, m_generatedMeshesPropertyID, m_generatedMeshesBuffer);
+
+        m_meshSimplifierCS.SetInts(m_chunkZoneSizeToGeneratePropertyID, m_chunkZoneSizeToGenerate.x, m_chunkZoneSizeToGenerate.y, m_chunkZoneSizeToGenerate.z);
 
         m_reorganizedMeshesIndexMapBuffer?.Release();
         m_reorganizedMeshesIndexMapBuffer = new ComputeBuffer(CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z, sizeof(int));
@@ -253,12 +267,12 @@ public class MarchingCubeController : MonoBehaviour
     }
 
     #region Mesh Creation
-    private void GenerateMeshes(CubeMesh[] meshes)
+    private void GenerateMeshes(CubeMesh[] meshes, int[] indexMap)
     {
+        m_utils = new ChunkifierUtils(CHUNK_SIZE, (m_chunkZoneSizeToGenerate.x, m_chunkZoneSizeToGenerate.y, m_chunkZoneSizeToGenerate.z));
         for (int i = 0; i < meshes.Length; i++)
         {
-            CubeMesh mesh = meshes[i];
-            CreateMesh(mesh, i);
+            CreateMesh(meshes[i], indexMap[i]);
         }
     }
 
@@ -287,11 +301,17 @@ public class MarchingCubeController : MonoBehaviour
 
     private Vector3Int GetCoordinatesFromIndex(int index)
     {
+#if false
+
         int z = index / (CellsToGenerateSize.x * CellsToGenerateSize.y);
         int indexY = index % (CellsToGenerateSize.x * CellsToGenerateSize.y);
         int y = indexY / CellsToGenerateSize.x;
         int x = indexY % CellsToGenerateSize.x;
+#else
+        (int x, int y, int z) = m_utils.ChunkifiedOffsetToCoordinates(index);
+#endif
         return new Vector3Int(x, y, z);
+
     }
-    #endregion
+#endregion
 }
