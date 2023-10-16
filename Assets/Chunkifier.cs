@@ -4,10 +4,11 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
+using static MeshStructs;
 
 public class Chunkifier : MonoBehaviour
 {
-    // Singleton stuff
+    // Singleton stuff for MenuItem methods
     public static Chunkifier Instance 
     {
         get
@@ -32,6 +33,8 @@ public class Chunkifier : MonoBehaviour
     [NonSerialized] private Color[] m_flatDatas;
     [NonSerialized] private Color[] m_chunkifiedFlatDatas;
     [NonSerialized] private int m_flatDatasLen;
+    [NonSerialized] private MeshFilter[,,] m_cubesMeshes;
+
     [NonSerialized] private Transform m_transform;
 
     [NonSerialized] private List<GameObject> m_dataVisusParents = new List<GameObject>();
@@ -68,8 +71,8 @@ public class Chunkifier : MonoBehaviour
 
     private void CreateDatas()
     {
-        m_datas = new Color[m_chunkSize * m_chunkSpan.x, m_chunkSize * m_chunkSpan.y, m_chunkSize * m_chunkSpan.z];
         m_datasSize = new Vector3Int(m_chunkSize * m_chunkSpan.x, m_chunkSize * m_chunkSpan.y, m_chunkSize * m_chunkSpan.z);
+        m_datas = new Color[m_datasSize.x, m_datasSize.y, m_datasSize.z];
 
         for (int x = 0; x < m_chunkSpan.x; x++)
         {
@@ -102,13 +105,17 @@ public class Chunkifier : MonoBehaviour
         cubesParent.localPosition = Vector3.zero;
         m_dataVisusParents.Add(cubeDatasParent);
 
+        m_cubesMeshes = new MeshFilter[m_datasSize.x, m_datasSize.y, m_datasSize.z];
+
         for (int x = 0; x < m_datasSize.x; x++)
         {
             for (int y = 0; y < m_datasSize.y; y++)
             {
                 for (int z = 0; z < m_datasSize.z; z++)
                 {
-                    CreateCube(x, y, z, m_datas[x, y, z], cubesParent, $"Cube_{m_utils.CoordinatesToChunkifiedIndex((x, y, z))}");
+                    m_cubesMeshes[x, y, z] = 
+                        CreateCube(x, y, z, m_datas[x, y, z], cubesParent, $"Cube_{m_utils.CoordinatesToChunkifiedIndex((x, y, z))}")
+                        .GetComponent<MeshFilter>(); ;
                 }
             }
         }
@@ -161,10 +168,9 @@ public class Chunkifier : MonoBehaviour
 
     private void Chunkify()
     {
-        
     }
 
-    private void CreateCube(int x, int y, int z, Color color, Transform parent, string name)
+    private Transform CreateCube(int x, int y, int z, Color color, Transform parent, string name)
     {
         Renderer newCube = Instantiate(m_cubePrefab);
         newCube.name = name;
@@ -175,6 +181,8 @@ public class Chunkifier : MonoBehaviour
         newCube.GetPropertyBlock(m_propertyblock);
         m_propertyblock.SetColor("_BaseColor", color);
         newCube.SetPropertyBlock(m_propertyblock);
+
+        return t;
     }
 
     public void ClearCubes()
