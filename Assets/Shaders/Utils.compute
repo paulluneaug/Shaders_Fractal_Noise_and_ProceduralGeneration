@@ -1,0 +1,11 @@
+#ifndef __UTILS_INCLUDED__
+#define __UTILS_INCLUDED__ 1
+
+
+bool Equals(float3 a, float3 b)
+{
+    return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+
+
+#endif

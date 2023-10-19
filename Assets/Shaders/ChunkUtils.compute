@@ -1,0 +1,130 @@
+#ifndef __CHUNK_UTILS_INCLUDED__
+#define __CHUNK_UTILS_INCLUDED__ 1
+
+#include "MarchingCubeConstants.compute"
+#include "Utils.compute"
+uint NextMultipleOf(uint n, uint m)
+{
+    return n + ((n % m != 0) ? 1 : 0) * m;
+}
+
+uint NextPowerOfTwoExposant(uint n)
+{
+    uint shift = 0;
+    bool a = false;
+    bool isPowerOfTwo = n > 0;
+    while (n != 0)
+    {
+        if (a)
+        {
+            isPowerOfTwo = false;
+        }
+        a = (n & 1) == 1;
+
+
+        ++shift;
+        n >>= 1;
+    }
+    return shift - (isPowerOfTwo ? 1 : 0);
+}
+
+uint2 OffsetToLocalOffsetInCubeOfDim(uint offset, uint dim)
+{
+    uint cubeVolume = 1 << (3 * dim);
+    return uint2(offset / cubeVolume, offset % cubeVolume);
+}
+
+uint2x3 CoordinatesToLocalCoordinatesInCubeOfDim(uint3 coordinates, uint dim)
+{
+    uint div = 1 << (dim - 1);
+    return int2x3(
+        uint3(coordinates.x / div, coordinates.y / div, coordinates.z / div),
+        uint3(coordinates.x % div, coordinates.y % div, coordinates.z % div));
+}
+
+uint3 OffsetToCoordinatesInUnitCube(uint offset)
+{
+    int z = offset / 4;
+    offset %= 4;
+    return int3(offset % 2, offset / 2, z);
+}
+
+
+uint CoordinatesToOffsetInUnitCube(uint3 coordinates)
+{
+    return coordinates.x + coordinates.y * 2 + coordinates.z * 4;
+}
+
+uint CoordinatesToChunkIndex(uint3 coords, uint3 chunkZoneSizeToGenerate)
+{
+    uint3 chunkOrigin = uint3(
+        coords.x / CHUNK_SIZE,
+        coords.y / CHUNK_SIZE,
+        coords.z / CHUNK_SIZE);
+
+    return chunkOrigin.x + chunkOrigin.y * chunkZoneSizeToGenerate.x + chunkOrigin.z * chunkZoneSizeToGenerate.x * chunkZoneSizeToGenerate.y;
+}
+
+uint3 CoordinatesToLocalCoordinates(uint3 coords)
+{
+    return uint3(
+        coords.x % CHUNK_SIZE,
+        coords.y % CHUNK_SIZE,
+        coords.z % CHUNK_SIZE);
+}
+
+uint LocalCoordinatesToChunkifiedLocalOffset(uint3 localCoords)
+{
+#if CHUNKIFY
+    int cubeDim = NextPowerOfTwoExposant(max(localCoords.x, max(localCoords.y, localCoords.z)) + 1);
+    int offset = 0;
+    int3 savedCoords = localCoords;
+    while (cubeDim > 0)
+    {
+        uint2x3 result = CoordinatesToLocalCoordinatesInCubeOfDim(localCoords, cubeDim);
+        uint3 localCoordinates = result._11_12_13;
+        uint3 remainder = result._21_22_23;
+        localCoords = remainder;
+        int offsetInUnitCube = CoordinatesToOffsetInUnitCube(localCoordinates);
+        int addedOffset = offsetInUnitCube * (1 << ((cubeDim - 1) * 3));
+        offset += addedOffset;
+        --cubeDim;
+    }
+    return offset;
+#else
+    return localCoords.x + localCoords.y * CHUNK_SIZE + localCoords.z * CHUNK_SIZE * CHUNK_SIZE;
+#endif
+}
+
+uint3 LocalOffsetToLocalCoordinates(uint offset)
+{
+    int x = 0;
+    int y = 0;
+    int z = 0;
+
+    uint pow = NextMultipleOf(NextPowerOfTwoExposant(offset), 3) / 3;
+    while (pow-- >= 0)
+    {
+        int2 result = OffsetToLocalOffsetInCubeOfDim(offset, pow);
+        int localOffset = result.x;
+        int remainder = result.y;
+        
+        int3 coordsInUnitCube = OffsetToCoordinatesInUnitCube(localOffset);
+        x += coordsInUnitCube.x * (1 << pow);
+        y += coordsInUnitCube.y * (1 << pow);
+        z += coordsInUnitCube.z * (1 << pow);
+        offset = remainder;
+    }
+    return int3(x, y, z);
+}
+
+uint CoordinatesToChunkifiedIndex(uint3 coords, uint3 chunkZoneSizeToGenerate)
+{
+    uint chunkIndex = CoordinatesToChunkIndex(coords, chunkZoneSizeToGenerate);
+    uint chunkOffset = chunkIndex * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+    uint3 localCoords = CoordinatesToLocalCoordinates(coords);
+
+    return chunkOffset + LocalCoordinatesToChunkifiedLocalOffset(localCoords);
+}
+
+#endif
