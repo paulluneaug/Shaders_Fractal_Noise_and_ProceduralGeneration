@@ -3,6 +3,7 @@
 
 #include "MarchingCubeConstants.compute"
 #include "Utils.compute"
+
 uint NextMultipleOf(uint n, uint m)
 {
     return n + ((n % m != 0) ? 1 : 0) * m;
@@ -55,14 +56,19 @@ uint CoordinatesToOffsetInUnitCube(uint3 coordinates)
     return coordinates.x + coordinates.y * 2 + coordinates.z * 4;
 }
 
+uint ChunkCoordinatesToChunkIndex(uint3 chunkCoordinates, uint3 chunkZoneSizeToGenerate)
+{
+    return chunkCoordinates.x + chunkCoordinates.y * chunkZoneSizeToGenerate.x + chunkCoordinates.z * chunkZoneSizeToGenerate.x * chunkZoneSizeToGenerate.y;
+}
+
 uint CoordinatesToChunkIndex(uint3 coords, uint3 chunkZoneSizeToGenerate)
 {
     uint3 chunkOrigin = uint3(
         coords.x / CHUNK_SIZE,
         coords.y / CHUNK_SIZE,
         coords.z / CHUNK_SIZE);
-
-    return chunkOrigin.x + chunkOrigin.y * chunkZoneSizeToGenerate.x + chunkOrigin.z * chunkZoneSizeToGenerate.x * chunkZoneSizeToGenerate.y;
+    
+    return ChunkCoordinatesToChunkIndex(chunkOrigin, chunkZoneSizeToGenerate);
 }
 
 uint3 CoordinatesToLocalCoordinates(uint3 coords)
@@ -125,6 +131,12 @@ uint CoordinatesToChunkifiedIndex(uint3 coords, uint3 chunkZoneSizeToGenerate)
     uint3 localCoords = CoordinatesToLocalCoordinates(coords);
 
     return chunkOffset + LocalCoordinatesToChunkifiedLocalOffset(localCoords);
+}
+
+bool IsOutsideChunk(uint3 coords)
+{
+    return coords.x >= CHUNK_SIZE && coords.y >= CHUNK_SIZE && coords.z >= CHUNK_SIZE;
+
 }
 
 #endif
