@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -59,7 +60,7 @@ public class MarchingCubeController : MonoBehaviour
     private const string MARCHING_CUBE_KERNEL_NAME = "MarchingCubes";
 
     private const string NOISE_TEXTURE = "_NoiseTexture";
-    private const string GENERATED_MESHES = "_GeneratedMeshes";
+    private const string GENERATED_MESHES = "_GeneratedCells";
 
     private const string CHUNK_ZONE_TO_GENERATE_SIZE = "_ChunkZoneSizeToGenerate";
     private const string CHUNK_OFFSET = "_ChunkOffset";
@@ -135,6 +136,9 @@ public class MarchingCubeController : MonoBehaviour
 
     [NonSerialized] private ChunkifierUtils m_utils;
 
+    [NonSerialized] private CellMesh[] m_generatedCells = null;
+    [NonSerialized] private ChunkMesh[] m_generatedChunks = null;
+
     private void Awake()
     {
         GetPropertiesIDs();
@@ -199,16 +203,11 @@ public class MarchingCubeController : MonoBehaviour
 
         m_recorder.AddEvent("Chunkify Mesh Shader Dispatch");
 
-        CubeMesh[] resultMeshes = new CubeMesh[CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z];
-        m_generatedMeshesBuffer.GetData(resultMeshes);
+        m_generatedCells = new CellMesh[CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z];
+        m_generatedMeshesBuffer.GetData(m_generatedCells);
         m_recorder.AddEvent("Mesh acquisition from shader");
 
-        int[] resultIndexMap = new int[CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z];
-        m_reorganizedMeshesIndexMapBuffer.GetData(resultIndexMap);
-
-        m_recorder.AddEvent("Mesh index map acquisition from shader");
-
-        GenerateMeshes(resultMeshes, resultIndexMap);
+        ChunkifyMeshes(m_generatedCells);
 
         m_recorder.AddEvent("Meshes Generation");
 
@@ -238,7 +237,7 @@ public class MarchingCubeController : MonoBehaviour
 
         // Meshes Buffer
         m_generatedMeshesBuffer?.Release();
-        m_generatedMeshesBuffer = new ComputeBuffer(CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z, Marshal.SizeOf(typeof(CubeMesh)));
+        m_generatedMeshesBuffer = new ComputeBuffer(CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z, Marshal.SizeOf(typeof(CellMesh)));
         m_marchingCubeCS.SetBuffer(m_marchingCubeKernelID, m_generatedMeshesPropertyID, m_generatedMeshesBuffer);
 
         // Other variables
@@ -267,16 +266,18 @@ public class MarchingCubeController : MonoBehaviour
     }
 
     #region Mesh Creation
-    private void GenerateMeshes(CubeMesh[] meshes, int[] indexMap)
+    private void ChunkifyMeshes(CellMesh[] cells)
     {
-        m_utils = new ChunkifierUtils(CHUNK_SIZE, (m_chunkZoneSizeToGenerate.x, m_chunkZoneSizeToGenerate.y, m_chunkZoneSizeToGenerate.z));
-        for (int i = 0; i < meshes.Length; i++)
+        int chunkCount = m_chunkZoneSizeToGenerate.x * m_chunkZoneSizeToGenerate.y * m_chunkZoneSizeToGenerate.z;
+        Parallel.For(0, chunkCount, (int chunkIndex) => ChunkifyCellsForChunk(chunkIndex));
+
+        for (int i = 0; i <  chunkCount; i++)
         {
-            CreateMesh(meshes[i], indexMap[i]);
+            CreateMesh(m_generatedChunks[i], i);
         }
     }
 
-    private void CreateMesh(CubeMesh cubeMesh, int index)
+    private void CreateMesh(IMesh meshStruct, int index)
     {
         Vector3Int coordinates = GetCoordinatesFromIndex(index);
         Vector3 meshPos = CellOffset + coordinates;
@@ -291,12 +292,7 @@ public class MarchingCubeController : MonoBehaviour
 
         MeshFilter filter = go.AddComponent<MeshFilter>();
 
-        Mesh mesh = new Mesh
-        {
-            vertices = cubeMesh.GetVertices(),
-            triangles = cubeMesh.GetTriangles()
-        };
-        filter.mesh = mesh;
+        filter.mesh = meshStruct.GetMesh();
     }
 
     private Vector3Int GetCoordinatesFromIndex(int index)
@@ -313,5 +309,48 @@ public class MarchingCubeController : MonoBehaviour
         return new Vector3Int(x, y, z);
 
     }
-#endregion
+    #endregion
+
+    private void ChunkifyCellsForChunk(int chunkIndex)
+    {
+        int chunkOffset = chunkIndex * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+
+        Vector3[] chunkVertices = new Vector3[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+        int[] chunkTriangles = new int[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+
+        int[] vertexMap = new int[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+        int nextVertexIndex = 0;
+        int nextTriangleIndex = 0;
+
+        for (uint i = 0; i < CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE; i++)
+        {
+            CellMesh currentMesh = m_generatedCells[chunkOffset + i];
+            Vector3[] currentVertices = currentMesh.GetVertices();
+            int[] currentTriangles = currentMesh.GetTriangles();
+
+            for (uint j = 0; j < 12; j++)
+            {
+                int rawVertexIndex = currentTriangles[j];
+                if (rawVertexIndex == -1)
+                {
+                    break;
+                }
+
+                if (vertexMap[rawVertexIndex] == 0)
+                {
+                    chunkVertices[nextVertexIndex] = currentVertices[rawVertexIndex % 12];
+
+                    nextVertexIndex++;
+                    vertexMap[rawVertexIndex] = nextVertexIndex;
+
+                }
+                chunkTriangles[nextTriangleIndex++] = vertexMap[rawVertexIndex] - 1;
+            }
+        }
+        chunkTriangles[nextTriangleIndex++] = -1;
+
+        ChunkMesh chunk = new ChunkMesh(chunkVertices, chunkTriangles);
+
+        m_generatedChunks[chunkIndex] = chunk;
+    }
 }

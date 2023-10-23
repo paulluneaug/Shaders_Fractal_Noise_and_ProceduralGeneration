@@ -13,6 +13,8 @@ public static class MeshStructs
     {
         Vector3[] GetVertices();
         int[] GetTriangles();
+
+        Mesh GetMesh();
     }
 
     public unsafe class MeshStructsUtils
@@ -71,16 +73,25 @@ public static class MeshStructs
 
             return result;
         }
+
+        public static Mesh GetMesh(IMesh meshStruct) 
+        {
+            return new Mesh
+            {
+                vertices = meshStruct.GetVertices(),
+                triangles = meshStruct.GetTriangles()
+            };
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct CubeMesh : IMesh
+    public unsafe struct CellMesh : IMesh
     {
         private const int VERTICES_COUNT = 12;
         private const int TRIANGLES_COUNT = 12;
 
-        private fixed float Vertices[VERTICES_COUNT * 3];
-        private fixed int Triangles[TRIANGLES_COUNT];
+        public fixed float Vertices[VERTICES_COUNT * 3];
+        public fixed int Triangles[TRIANGLES_COUNT];
 
         public Vector3[] GetVertices()
         {
@@ -102,38 +113,41 @@ public static class MeshStructs
                     return MeshStructsUtils.GetTriangles(trianglesPtr, TRIANGLES_COUNT);
                 }
             }
+        }
+
+        public readonly Mesh GetMesh()
+        {
+            return MeshStructsUtils.GetMesh(this);
         }
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct ChunkMesh : IMesh
+    public readonly struct ChunkMesh : IMesh
     {
         private const int VERTICES_COUNT = 12 * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE;
         private const int TRIANGLES_COUNT = 12 * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE;
 
-        private fixed float Vertices[VERTICES_COUNT * 3];
-        private fixed int Triangles[TRIANGLES_COUNT];
+        private readonly Vector3[] Vertices;
+        private readonly int[] Triangles;
 
-        public Vector3[] GetVertices()
+        public ChunkMesh(Vector3[] vertices, int[] triangles)
         {
-            fixed (float* verticesRawPrt = Vertices)
-            {
-                IntPtr verticesPtr = new IntPtr(verticesRawPrt);
-                {
-                    return MeshStructsUtils.GetVertices(verticesPtr, VERTICES_COUNT);
-                }
-            }
+            Vertices = vertices;
+            Triangles = triangles;
         }
 
-        public int[] GetTriangles()
+        public readonly int[] GetTriangles()
         {
-            fixed (int* trianglesRawPtr = Triangles)
-            {
-                IntPtr trianglesPtr = new IntPtr(trianglesRawPtr);
-                {
-                    return MeshStructsUtils.GetTriangles(trianglesPtr, TRIANGLES_COUNT);
-                }
-            }
+            return Triangles;
+        }
+
+        public readonly Vector3[] GetVertices()
+        {
+            return Vertices;
+        }
+        public readonly Mesh GetMesh()
+        {
+            return MeshStructsUtils.GetMesh(this);
         }
     }
 }
