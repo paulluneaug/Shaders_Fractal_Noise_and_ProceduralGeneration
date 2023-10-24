@@ -3,6 +3,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Unity.Mathematics;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -209,6 +210,13 @@ public class MarchingCubeController : MonoBehaviour
 
         ChunkifyMeshes(m_generatedCells);
 
+        m_recorder.AddEvent("Chunkify Operation");
+
+        for (int i = 0; i < m_generatedChunks.Length; i++)
+        {
+            CreateMesh(m_generatedChunks[i], i);
+        }
+
         m_recorder.AddEvent("Meshes Generation");
 
         m_recorder.LogAllEventsTimeSpan();
@@ -269,17 +277,14 @@ public class MarchingCubeController : MonoBehaviour
     private void ChunkifyMeshes(CellMesh[] cells)
     {
         int chunkCount = m_chunkZoneSizeToGenerate.x * m_chunkZoneSizeToGenerate.y * m_chunkZoneSizeToGenerate.z;
+        m_generatedChunks = new ChunkMesh[chunkCount];
         Parallel.For(0, chunkCount, (int chunkIndex) => ChunkifyCellsForChunk(chunkIndex));
 
-        for (int i = 0; i <  chunkCount; i++)
-        {
-            CreateMesh(m_generatedChunks[i], i);
-        }
     }
 
     private void CreateMesh(IMesh meshStruct, int index)
     {
-        Vector3Int coordinates = GetCoordinatesFromIndex(index);
+        Vector3Int coordinates = GetCoordinatesFromIndex(index, m_chunkZoneSizeToGenerate) * CHUNK_SIZE;
         Vector3 meshPos = CellOffset + coordinates;
         GameObject go = new GameObject($"Mesh_{index}{meshPos}");
         Transform t = go.transform;
@@ -295,14 +300,14 @@ public class MarchingCubeController : MonoBehaviour
         filter.mesh = meshStruct.GetMesh();
     }
 
-    private Vector3Int GetCoordinatesFromIndex(int index)
+    private Vector3Int GetCoordinatesFromIndex(int index, Vector3Int zone)
     {
-#if false
+#if true
 
-        int z = index / (CellsToGenerateSize.x * CellsToGenerateSize.y);
-        int indexY = index % (CellsToGenerateSize.x * CellsToGenerateSize.y);
-        int y = indexY / CellsToGenerateSize.x;
-        int x = indexY % CellsToGenerateSize.x;
+        int z = index / (zone.x * zone.y);
+        int indexY = index % (zone.x * zone.y);
+        int y = indexY / zone.x;
+        int x = indexY % zone.x;
 #else
         (int x, int y, int z) = m_utils.ChunkifiedOffsetToCoordinates(index);
 #endif
@@ -322,35 +327,69 @@ public class MarchingCubeController : MonoBehaviour
         int nextVertexIndex = 0;
         int nextTriangleIndex = 0;
 
-        for (uint i = 0; i < CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE; i++)
+        for (uint ix = 0; ix < CHUNK_SIZE; ix++)
         {
-            CellMesh currentMesh = m_generatedCells[chunkOffset + i];
-            Vector3[] currentVertices = currentMesh.GetVertices();
-            int[] currentTriangles = currentMesh.GetTriangles();
-
-            for (uint j = 0; j < 12; j++)
+            for (uint iy = 0; iy < CHUNK_SIZE; iy++)
             {
-                int rawVertexIndex = currentTriangles[j];
-                if (rawVertexIndex == -1)
+                for (uint iz = 0; iz < CHUNK_SIZE; iz++)
                 {
-                    break;
+                    uint i = ix + iy * CHUNK_SIZE + iz * CHUNK_SIZE * CHUNK_SIZE;
+                    CellMesh currentMesh = m_generatedCells[chunkOffset + i];
+                    Vector3[] currentVertices = currentMesh.GetVertices();
+                    int[] currentTriangles = currentMesh.GetTriangles();
+
+                    for (uint j = 0; j < 12; j++)
+                    {
+                        int rawVertexIndex = currentTriangles[j];
+                        if (rawVertexIndex == -1)
+                        {
+                            break;
+                        }
+
+                        if (rawVertexIndex >= 12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE)
+                        {
+                            Debug.LogError($"{rawVertexIndex}");
+                        }
+
+                        if (vertexMap[rawVertexIndex] == 0)
+                        {
+                            chunkVertices[nextVertexIndex] = currentVertices[rawVertexIndex % 12] + new Vector3(ix, iy, iz);
+
+                            nextVertexIndex++;
+                            vertexMap[rawVertexIndex] = nextVertexIndex;
+
+                        }
+                        chunkTriangles[nextTriangleIndex++] = vertexMap[rawVertexIndex] - 1;
+                    }
                 }
-
-                if (vertexMap[rawVertexIndex] == 0)
-                {
-                    chunkVertices[nextVertexIndex] = currentVertices[rawVertexIndex % 12];
-
-                    nextVertexIndex++;
-                    vertexMap[rawVertexIndex] = nextVertexIndex;
-
-                }
-                chunkTriangles[nextTriangleIndex++] = vertexMap[rawVertexIndex] - 1;
-            }
+            } 
         }
-        chunkTriangles[nextTriangleIndex++] = -1;
 
-        ChunkMesh chunk = new ChunkMesh(chunkVertices, chunkTriangles);
+        ChunkMesh chunk = new ChunkMesh(chunkVertices.Resize(nextVertexIndex), chunkTriangles.Resize(nextTriangleIndex));
 
         m_generatedChunks[chunkIndex] = chunk;
+    }
+}
+
+public static class ArrayExtension
+{
+    public unsafe static T[] Resize<T>(this T[] array, int size) where T : unmanaged
+    {
+        T[] result = new T[size];
+
+        if (size == 0 ||  array.Length == 0)
+        {
+            return result;
+        }
+
+        fixed (T* arrayRawPtr = &array[0])
+        {
+            fixed (T* resultRawPtr = &result[0])
+            {
+                Buffer.MemoryCopy(arrayRawPtr, resultRawPtr, size * sizeof(T), Math.Min(array.Length, size) * sizeof(T));
+            }
+        }
+
+        return result;
     }
 }

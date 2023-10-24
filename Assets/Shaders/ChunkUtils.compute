@@ -133,9 +133,9 @@ uint CoordinatesToChunkifiedIndex(uint3 coords, uint3 chunkZoneSizeToGenerate)
     return chunkOffset + LocalCoordinatesToChunkifiedLocalOffset(localCoords);
 }
 
-bool IsOutsideChunk(uint3 coords)
+bool IsInsideChunk(uint3 coords)
 {
-    return coords.x >= CHUNK_SIZE && coords.y >= CHUNK_SIZE && coords.z >= CHUNK_SIZE;
+    return coords.x < CHUNK_SIZE && coords.y < CHUNK_SIZE && coords.z < CHUNK_SIZE;
 
 }
 

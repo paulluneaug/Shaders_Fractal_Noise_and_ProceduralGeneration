@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
+
 public static class Constants
 {
     public const int CHUNK_SIZE = 16;
@@ -19,59 +20,74 @@ public static class MeshStructs
 
     public unsafe class MeshStructsUtils
     {
-        public static Vector3[] GetVertices(IntPtr verticesPtr, int verticesCount)
+        public static Vector3[] GetVertices(IntPtr verticesPtr, int verticesCount, bool trimMinusOne)
         {
             float[] rawValues = new float[3 * verticesCount];
-
-            Marshal.Copy(verticesPtr, rawValues, 0, 3 * verticesCount);
-
-            int size = 0;
-            for (; size < verticesCount; ++size)
+            Vector3[] result;
+            if (trimMinusOne)
             {
-                if (rawValues[size * 3] == -1)
+                Marshal.Copy(verticesPtr, rawValues, 0, 3 * verticesCount);
+
+                int size = 0;
+                for (; size < verticesCount; ++size)
                 {
-                    break;
+                    if (rawValues[size * 3] == -1)
+                    {
+                        break;
+                    }
+                }
+
+                result = new Vector3[size];
+
+                if (size == 0)
+                {
+                    return result;
+                }
+
+                fixed (Vector3* resultRawPtr = &result[0])
+                {
+                    IntPtr resultPtr = new IntPtr(resultRawPtr);
+                    Marshal.Copy(rawValues, 0, resultPtr, size * 3);
                 }
             }
-
-            Vector3[] result = new Vector3[size];
-
-            if (size == 0)
+            else
             {
-                return result;
+                result = new Vector3[verticesCount];
+                fixed (Vector3* resultRawPtr = &result[0])
+                {
+                    IntPtr resultPtr = new IntPtr(resultRawPtr);
+                    Marshal.Copy(rawValues, 0, resultPtr, verticesCount * 3);
+                }
             }
-
-            fixed (Vector3* resultRawPtr = &result[0])
-            {
-                IntPtr resultPtr = new IntPtr(resultRawPtr);
-                Marshal.Copy(rawValues, 0, resultPtr, size * 3);
-            }
-
-            //Array.Copy(rawValues, result, resultSize * 3);
-
             return result;
         }
 
-        public static int[] GetTriangles(IntPtr trianglesPtr, int trianglesCount)
+        public static int[] GetTriangles(IntPtr trianglesPtr, int trianglesCount, bool trimMinusOne)
         {
             int[] rawValues = new int[trianglesCount];
 
             Marshal.Copy(trianglesPtr, rawValues, 0, trianglesCount);
-
-            int size = 0;
-            for (; size < trianglesCount; size++)
+            if (trimMinusOne)
             {
-                if (rawValues[size] == -1)
+                int size = 0;
+                for (; size < trianglesCount; size++)
                 {
-                    break;
+                    if (rawValues[size] == -1)
+                    {
+                        break;
+                    }
                 }
+
+                int[] result = new int[size];
+                Array.Copy(rawValues, result, size);
+                //Buffer.BlockCopy(rawValues, 0, result, 0, size * sizeof(int));
+
+                return result;
             }
-
-            int[] result = new int[size];
-            Array.Copy(rawValues, result, size);
-            //Buffer.BlockCopy(rawValues, 0, result, 0, size * sizeof(int));
-
-            return result;
+            else
+            {
+                return rawValues;
+            }
         }
 
         public static Mesh GetMesh(IMesh meshStruct) 
@@ -99,7 +115,7 @@ public static class MeshStructs
             {
                 IntPtr verticesPtr = new IntPtr(verticesRawPrt);
                 {
-                    return MeshStructsUtils.GetVertices(verticesPtr, VERTICES_COUNT);
+                    return MeshStructsUtils.GetVertices(verticesPtr, VERTICES_COUNT, false);
                 }
             }
         }
@@ -110,7 +126,7 @@ public static class MeshStructs
             {
                 IntPtr trianglesPtr = new IntPtr(trianglesRawPtr);
                 {
-                    return MeshStructsUtils.GetTriangles(trianglesPtr, TRIANGLES_COUNT);
+                    return MeshStructsUtils.GetTriangles(trianglesPtr, TRIANGLES_COUNT, false);
                 }
             }
         }
