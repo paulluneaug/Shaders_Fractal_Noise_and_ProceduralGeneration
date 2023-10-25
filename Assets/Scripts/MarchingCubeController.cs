@@ -2,9 +2,11 @@ using System;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using System.Xml.Schema;
 using Unity.Mathematics;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
+using UnityEngine.Animations;
 using UnityEngine.Rendering;
 
 using static Constants;
@@ -98,6 +100,12 @@ public class MarchingCubeController : MonoBehaviour
     [SerializeField] private NoiseLayer3D[] m_noiseLayers = null;
 
     [SerializeField] private Material m_material = null;
+
+    [Header("Gizmos")]
+    [SerializeField] private Axis m_axisToDrawChunkBorders = Axis.X | Axis.Y | Axis.Z;
+    [SerializeField] private Color m_chunksBorderColor = Color.red;
+    [SerializeField] private Axis m_axisToDrawCellBorders = Axis.X | Axis.Y | Axis.Z;
+    [SerializeField] private Color m_cellsBorderColor = Color.yellow;
     #endregion
 
     // Cache
@@ -369,6 +377,88 @@ public class MarchingCubeController : MonoBehaviour
 
         m_generatedChunks[chunkIndex] = chunk;
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = m_cellsBorderColor;
+        if ((m_axisToDrawCellBorders & Axis.X) == Axis.X)
+        {
+            for (int xy_x = 1; xy_x < CellsToGenerateSize.x; ++xy_x)
+            {
+                for (int xy_y = 1; xy_y < CellsToGenerateSize.y; ++xy_y)
+                {
+                    DrawGizmoLineInLocalSpace(m_chunkOffset + new Vector3(xy_x, xy_y, 0), m_chunkOffset + new Vector3(xy_x, xy_y, CellsToGenerateSize.z));
+                }
+            }
+
+        }
+
+        if ((m_axisToDrawCellBorders & Axis.Y) == Axis.Y)
+        {
+            for (int xz_x = 1; xz_x < CellsToGenerateSize.x; ++xz_x)
+            {
+                for (int xz_z = 1; xz_z < CellsToGenerateSize.z; ++xz_z)
+                {
+                    DrawGizmoLineInLocalSpace(m_chunkOffset + new Vector3(xz_x, 0, xz_z), m_chunkOffset + new Vector3(xz_x, CellsToGenerateSize.y, xz_z));
+                }
+            }
+
+        }
+
+        if ((m_axisToDrawCellBorders & Axis.Z) == Axis.Z)
+        {
+            for (int yz_y = 1; yz_y < CellsToGenerateSize.y; ++yz_y)
+            {
+                for (int yz_z = 1; yz_z < CellsToGenerateSize.z; ++yz_z)
+                {
+                    DrawGizmoLineInLocalSpace(m_chunkOffset + new Vector3(0, yz_y, yz_z), m_chunkOffset + new Vector3(CellsToGenerateSize.x, yz_y, yz_z));
+                }
+            }
+        }
+
+        Gizmos.color = m_chunksBorderColor;
+        if ((m_axisToDrawChunkBorders & Axis.X) == Axis.X)
+        {
+            for (int xy_x = 0; xy_x < m_chunkZoneSizeToGenerate.x + 1; ++xy_x)
+            {
+                for (int xy_y = 0; xy_y < m_chunkZoneSizeToGenerate.y + 1; ++xy_y)
+                {
+                    DrawGizmoLineInLocalSpace(m_chunkOffset + new Vector3(xy_x, xy_y, 0) * CHUNK_SIZE, m_chunkOffset + new Vector3(xy_x, xy_y, m_chunkZoneSizeToGenerate.z) * CHUNK_SIZE);
+                }
+            }
+
+        }
+
+        if ((m_axisToDrawChunkBorders & Axis.Y) == Axis.Y)
+        {
+            for (int xz_x = 0; xz_x < m_chunkZoneSizeToGenerate.x + 1; ++xz_x)
+            {
+                for (int xz_z = 0; xz_z < m_chunkZoneSizeToGenerate.z + 1; ++xz_z)
+                {
+                    DrawGizmoLineInLocalSpace(m_chunkOffset + new Vector3(xz_x, 0, xz_z) * CHUNK_SIZE, m_chunkOffset + new Vector3(xz_x, m_chunkZoneSizeToGenerate.y, xz_z) * CHUNK_SIZE);
+                }
+            }
+
+        }
+
+        if ((m_axisToDrawChunkBorders & Axis.Z) == Axis.Z)
+        {
+            for (int yz_y = 0; yz_y < m_chunkZoneSizeToGenerate.y + 1; ++yz_y)
+            {
+                for (int yz_z = 0; yz_z < m_chunkZoneSizeToGenerate.z + 1; ++yz_z)
+                {
+                    DrawGizmoLineInLocalSpace(m_chunkOffset + new Vector3(0, yz_y, yz_z) * CHUNK_SIZE, m_chunkOffset + new Vector3(m_chunkZoneSizeToGenerate.x, yz_y, yz_z) * CHUNK_SIZE);
+                }
+            }
+        }
+    }
+
+    private void DrawGizmoLineInLocalSpace(Vector3 from, Vector3 to)
+    {
+        Gizmos.DrawLine(transform.TransformPoint(from), transform.TransformPoint(to));
+    }
+#endif
 }
 
 public static class ArrayExtension
