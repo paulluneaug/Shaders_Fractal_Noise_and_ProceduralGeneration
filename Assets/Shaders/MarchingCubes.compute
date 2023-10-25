@@ -169,7 +169,7 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
         }
         
         uint3 cubeCoordsOffset = _CubeContainingVertexOffset[rawVertexIndex];
-        bool isInsideVertex = IsInsideChunk(localCoordinates + cubeCoordsOffset);
+        bool isVertexInsideChunk = IsInsideChunk(localCoordinates + cubeCoordsOffset);
         
 #if REORGANIZE_INDICES
         if (isExtVertex)
@@ -181,11 +181,14 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
             meshTriangles[j] += LocalCoordinatesToChunkifiedLocalOffset(localCoordinates + cubeCoordsOffset) * 12;
         }
 #else
-        if (isInsideVertex)
+        if (isVertexInsideChunk)
         {
-            meshTriangles[j] += LocalCoordinatesToChunkifiedLocalOffset(cubeCoordsOffset) * 12;
+            meshTriangles[j] += /*_VertexEquivalentInContainingCube[meshTriangles[j]] +*/ LocalCoordinatesToChunkifiedLocalOffset(localCoordinates + cubeCoordsOffset) * 12;
         }
-        meshTriangles[j] += cellID;
+        else
+        {
+            meshTriangles[j] += cellID;
+        }
 #endif
     }
     
