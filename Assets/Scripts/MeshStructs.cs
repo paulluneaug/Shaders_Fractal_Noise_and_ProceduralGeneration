@@ -24,9 +24,9 @@ public static class MeshStructs
         {
             float[] rawValues = new float[3 * verticesCount];
             Vector3[] result;
+            Marshal.Copy(verticesPtr, rawValues, 0, 3 * verticesCount);
             if (trimMinusOne)
             {
-                Marshal.Copy(verticesPtr, rawValues, 0, 3 * verticesCount);
 
                 int size = 0;
                 for (; size < verticesCount; ++size)
