@@ -286,6 +286,7 @@ public class MarchingCubeController : MonoBehaviour
     {
         int chunkCount = m_chunkZoneSizeToGenerate.x * m_chunkZoneSizeToGenerate.y * m_chunkZoneSizeToGenerate.z;
         m_generatedChunks = new ChunkMesh[chunkCount];
+        m_utils = new ChunkifierUtils(CHUNK_SIZE, (m_chunkZoneSizeToGenerate.x, m_chunkZoneSizeToGenerate.y, m_chunkZoneSizeToGenerate.z));
         Parallel.For(0, chunkCount, (int chunkIndex) => ChunkifyCellsForChunk(chunkIndex));
 
     }
@@ -361,7 +362,8 @@ public class MarchingCubeController : MonoBehaviour
 
                         if (vertexMap[rawVertexIndex] == 0)
                         {
-                            chunkVertices[nextVertexIndex] = currentVertices[rawVertexIndex % 12] + new Vector3(ix, iy, iz);
+                            (int x, int y, int z) = m_utils.LocalOffsetToLocalCoordinates(rawVertexIndex / 12);
+                            chunkVertices[nextVertexIndex] = currentVertices[rawVertexIndex % 12] + new Vector3(x, y, z);
 
                             nextVertexIndex++;
                             vertexMap[rawVertexIndex] = nextVertexIndex;

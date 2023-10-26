@@ -109,6 +109,14 @@ public class ChunkifierUtils
         return offset;
     }
 
+    public (int x, int y, int z) LocalOffsetToLocalCoordinates(int offset)
+    {
+        int z = offset / (m_chunkSize * m_chunkSize);
+        int rst = offset - (z * m_chunkSize * m_chunkSize);
+        int y = rst / m_chunkSize;
+        return (rst - y * m_chunkSize, y, z);
+    }
+
     public (int x, int y, int z) ChunkifiedLocalOffsetToLocalCoordinates(int offset)
     {
         int x = 0;
