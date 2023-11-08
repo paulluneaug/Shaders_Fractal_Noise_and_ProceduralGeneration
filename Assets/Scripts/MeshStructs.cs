@@ -6,6 +6,7 @@ using UnityEngine;
 public static class Constants
 {
     public const int CHUNK_SIZE = 16;
+    public const int CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 }
 
 public static class MeshStructs
@@ -108,6 +109,7 @@ public static class MeshStructs
 
         public fixed float Vertices[VERTICES_COUNT * 3];
         public fixed int Triangles[TRIANGLES_COUNT];
+        public fixed float DebugValues[VERTICES_COUNT * 3];
 
         public Vector3[] GetVertices()
         {
@@ -134,6 +136,17 @@ public static class MeshStructs
         public readonly Mesh GetMesh()
         {
             return MeshStructsUtils.GetMesh(this);
+        }
+
+        public readonly Vector3[] GetDebugValues()
+        {
+            fixed (float* debugValuesRawPrt = DebugValues)
+            {
+                IntPtr debugValuesPtr = new IntPtr(debugValuesRawPrt);
+                {
+                    return MeshStructsUtils.GetVertices(debugValuesPtr, VERTICES_COUNT, false);
+                }
+            }
         }
     }
 

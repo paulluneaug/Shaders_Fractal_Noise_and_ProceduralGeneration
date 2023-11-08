@@ -32,6 +32,7 @@ struct CubeMesh
 {
     float3 Vertices[12];
     int Triangles[12];
+    float3 DebugValues[12];
 };
 
 struct ChunkMesh
@@ -134,9 +135,13 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
     CubeMesh mesh;
     float3 meshVertices[12] = _DefaultVertices;
     int meshTriangles[12] = _DefaultTriangles;
+    float3 debugValues[12] = _DefaultVertices;
     
     uint3 localCoordinates = CoordinatesToLocalCoordinates(id.xyz);
     uint cellID = LocalCoordinatesToChunkifiedLocalOffset(localCoordinates) * 12;
+    
+    debugValues[11] = localCoordinates;
+    debugValues[10] = float3(cellID, 0, 0);
     
     // Determine the index in _TriangleTable of the current mesh
     uint meshIndex = 0;
@@ -158,7 +163,23 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
             break;
         }
         
-        if (Equals(meshVertices[rawVertexIndex], _EmptyVertice))
+        uint3 cubeCoordsOffset = _CubeContainingVertexOffset[rawVertexIndex];
+        bool isVertexInsideChunk = IsInsideChunk(localCoordinates + cubeCoordsOffset);
+        bool isVertexInThisCell = _VertexBelongToCurrentCell[rawVertexIndex] || !isVertexInsideChunk;
+        
+        int debug = rawVertexIndex;
+        
+        if (!isVertexInThisCell)
+        {
+            rawVertexIndex = _VertexEquivalentInContainingCube[rawVertexIndex];
+            meshTriangles[j] = rawVertexIndex + cellID + LocalCoordinatesToChunkifiedLocalOffset(cubeCoordsOffset) * 12;
+        }
+        else
+        {
+            meshTriangles[j] += cellID;
+        }
+        
+        if (/*true || */(isVertexInThisCell && Equals(meshVertices[rawVertexIndex], _EmptyVertice)))
         {
             int2 edgeVertexIndices = _EdgeVertexIndices[rawVertexIndex];
             float2 noiseValues = float2(_NoiseTexture[id.xyz + _VerticesCoordinates[edgeVertexIndices.x]], _NoiseTexture[id.xyz + _VerticesCoordinates[edgeVertexIndices.y]]);
@@ -166,10 +187,10 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
             
             float3 vertexPos = lerp(_VerticesCoordinates[edgeVertexIndices.x], _VerticesCoordinates[edgeVertexIndices.y], lerpFactor);
             meshVertices[rawVertexIndex] = vertexPos;
+            
         }
-        
-        uint3 cubeCoordsOffset = _CubeContainingVertexOffset[rawVertexIndex];
-        bool isVertexInsideChunk = IsInsideChunk(localCoordinates + cubeCoordsOffset);
+        //debugValues[rawVertexIndex] = cubeCoordsOffset;
+        debugValues[debug] = float3(debug, rawVertexIndex, isVertexInThisCell ? 1.0 : 0.0);
         
 #if REORGANIZE_INDICES
         if (isExtVertex)
@@ -181,19 +202,12 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
             meshTriangles[j] += LocalCoordinatesToChunkifiedLocalOffset(localCoordinates + cubeCoordsOffset) * 12;
         }
 #else
-        if (isVertexInsideChunk)
-        {
-            meshTriangles[j] += /*_VertexEquivalentInContainingCube[meshTriangles[j]] +*/ LocalCoordinatesToChunkifiedLocalOffset(localCoordinates + cubeCoordsOffset) * 12;
-        }
-        else
-        {
-            meshTriangles[j] += cellID;
-        }
 #endif
     }
     
     mesh.Vertices = meshVertices;
     mesh.Triangles = meshTriangles;
+    mesh.DebugValues = debugValues;
     _GeneratedCells[index] = mesh;
 }
 

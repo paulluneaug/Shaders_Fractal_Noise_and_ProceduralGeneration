@@ -190,7 +190,7 @@ public class MarchingCubeController : MonoBehaviour
         m_recorder.Reset();
 
         SetMarchingCubeShaderProperties();
-        SetMeshSimplifierShaderProperties();
+        //SetMeshSimplifierShaderProperties();
 
         m_recorder.AddEvent("Shader properties assignation");
 
@@ -208,7 +208,7 @@ public class MarchingCubeController : MonoBehaviour
 
         m_recorder.AddEvent("Marching cubes Shader Dispatch");
 
-        m_meshSimplifierCS.Dispatch(m_chunkifyMeshesKernelID, groupX, groupY, groupZ);
+        //m_meshSimplifierCS.Dispatch(m_chunkifyMeshesKernelID, groupX, groupY, groupZ);
 
         m_recorder.AddEvent("Chunkify Mesh Shader Dispatch");
 
@@ -327,12 +327,12 @@ public class MarchingCubeController : MonoBehaviour
 
     private void ChunkifyCellsForChunk(int chunkIndex)
     {
-        int chunkOffset = chunkIndex * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+        int chunkOffset = chunkIndex * CHUNK_VOLUME;
 
-        Vector3[] chunkVertices = new Vector3[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
-        int[] chunkTriangles = new int[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+        Vector3[] chunkVertices = new Vector3[12 * CHUNK_VOLUME];
+        int[] chunkTriangles = new int[12 * CHUNK_VOLUME];
 
-        int[] vertexMap = new int[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+        int[] vertexMap = new int[12 * CHUNK_VOLUME];
         int nextVertexIndex = 0;
         int nextTriangleIndex = 0;
 
@@ -346,6 +346,7 @@ public class MarchingCubeController : MonoBehaviour
                     CellMesh currentMesh = m_generatedCells[chunkOffset + i];
                     Vector3[] currentVertices = currentMesh.GetVertices();
                     int[] currentTriangles = currentMesh.GetTriangles();
+                    Vector3[] debugValues = currentMesh.GetDebugValues();
 
                     for (uint j = 0; j < 12; j++)
                     {
@@ -355,17 +356,15 @@ public class MarchingCubeController : MonoBehaviour
                             break;
                         }
 
-                        if (rawVertexIndex >= 12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE)
+                        if (rawVertexIndex >= 12 * CHUNK_VOLUME)
                         {
                             Debug.LogError($"{rawVertexIndex}");
                         }
 
                         if (vertexMap[rawVertexIndex] == 0)
                         {
-                            (int x, int y, int z) = m_utils.LocalOffsetToLocalCoordinates(rawVertexIndex / 12);
-                            chunkVertices[nextVertexIndex] = currentVertices[rawVertexIndex % 12] + new Vector3(x, y, z);
+                            chunkVertices[nextVertexIndex++] = currentVertices[rawVertexIndex % 12] + GetCoordinatesFromIndex(rawVertexIndex / 12, Vector3Int.one * CHUNK_SIZE);
 
-                            nextVertexIndex++;
                             vertexMap[rawVertexIndex] = nextVertexIndex;
 
                         }

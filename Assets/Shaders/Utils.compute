@@ -7,5 +7,10 @@ bool Equals(float3 a, float3 b)
     return a.x == b.x && a.y == b.y && a.z == b.z;
 }
 
+bool Equals(uint3 a, uint3 b)
+{
+    return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+
 
 #endif

@@ -1,6 +1,7 @@
 #ifndef __MC_CONSTANTS_INCLUDED__
 #define __MC_CONSTANTS_INCLUDED__ 1
 
+
 // Consts
 static const float3 _EmptyVertice = float3(-1, -1, -1);
 
@@ -49,7 +50,21 @@ static const int2 _EdgeVertexIndices[12] =
     int2(2, 6),
 };
 
-// Triangle Table from dwilliamson (https://gist.github.com/dwilliamson/c041e3454a713e58baf6e4f8e5fffecd)
+static const bool _VertexBelongToCurrentCell[12] =
+{
+    true,  // 0
+    false, // 1
+    false, // 2
+    true,  // 3
+    false, // 4
+    false, // 5
+    false, // 6
+    false, // 7
+    true,  // 8
+    false, // 9
+    false, // 10
+    false  // 11
+};
 
 static const uint3 _CubeContainingVertexOffset[12] =
 {
@@ -83,6 +98,7 @@ static const uint _VertexEquivalentInContainingCube[12] =
     8, // 11
 };
 
+// Triangle Table from dwilliamson (https://gist.github.com/dwilliamson/c041e3454a713e58baf6e4f8e5fffecd)
 // Axes are:
 //
 //      y
