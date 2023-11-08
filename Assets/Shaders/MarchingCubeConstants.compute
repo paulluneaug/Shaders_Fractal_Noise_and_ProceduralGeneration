@@ -50,6 +50,8 @@ static const int2 _EdgeVertexIndices[12] =
     int2(2, 6),
 };
 
+// Triangle Table from dwilliamson (https://gist.github.com/dwilliamson/c041e3454a713e58baf6e4f8e5fffecd)
+
 static const bool _VertexBelongToCurrentCell[12] =
 {
     true,  // 0
