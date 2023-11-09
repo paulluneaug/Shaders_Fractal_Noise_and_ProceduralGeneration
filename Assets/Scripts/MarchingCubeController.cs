@@ -2,9 +2,7 @@ using System;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using System.Xml.Schema;
-using Unity.Mathematics;
-using UnityEditor.Experimental.GraphView;
+
 using UnityEngine;
 using UnityEngine.Animations;
 using UnityEngine.Rendering;
@@ -336,42 +334,60 @@ public class MarchingCubeController : MonoBehaviour
         int nextVertexIndex = 0;
         int nextTriangleIndex = 0;
 
-        for (uint ix = 0; ix < CHUNK_SIZE; ix++)
+        for (int i = 0; i < CHUNK_VOLUME; ++i)
         {
-            for (uint iy = 0; iy < CHUNK_SIZE; iy++)
+            CellMesh currentMesh = m_generatedCells[chunkOffset + i];
+            Vector3[] currentVertices = currentMesh.GetVertices();
+            int[] currentTriangles = currentMesh.GetTriangles();
+            Vector3[] debugValues = currentMesh.GetDebugValues();
+
+            int currentMeshMinVerticeIndex = i * 12;
+            int currentMeshMaxVerticeIndex = (i + 1) * 12 - 1;
+
+            for (uint j = 0; j < 12; j++)
             {
-                for (uint iz = 0; iz < CHUNK_SIZE; iz++)
+                int rawVertexIndex = currentTriangles[j];
+                if (rawVertexIndex == -1)
                 {
-                    uint i = ix + iy * CHUNK_SIZE + iz * CHUNK_SIZE * CHUNK_SIZE;
-                    CellMesh currentMesh = m_generatedCells[chunkOffset + i];
-                    Vector3[] currentVertices = currentMesh.GetVertices();
-                    int[] currentTriangles = currentMesh.GetTriangles();
-                    Vector3[] debugValues = currentMesh.GetDebugValues();
+                    break;
+                }
 
-                    for (uint j = 0; j < 12; j++)
+                if (rawVertexIndex >= 12 * CHUNK_VOLUME)
+                {
+                    Debug.LogError($"{rawVertexIndex}");
+                }
+
+
+                if (rawVertexIndex.Between(currentMeshMinVerticeIndex, currentMeshMaxVerticeIndex))
+                {
+                    if (vertexMap[rawVertexIndex] == 0)
                     {
-                        int rawVertexIndex = currentTriangles[j];
-                        if (rawVertexIndex == -1)
-                        {
-                            break;
-                        }
+                        chunkVertices[nextVertexIndex++] = currentVertices[rawVertexIndex % 12] + GetCoordinatesFromIndex(rawVertexIndex / 12, Vector3Int.one * CHUNK_SIZE);
 
-                        if (rawVertexIndex >= 12 * CHUNK_VOLUME)
-                        {
-                            Debug.LogError($"{rawVertexIndex}");
-                        }
-
-                        if (vertexMap[rawVertexIndex] == 0)
-                        {
-                            chunkVertices[nextVertexIndex++] = currentVertices[rawVertexIndex % 12] + GetCoordinatesFromIndex(rawVertexIndex / 12, Vector3Int.one * CHUNK_SIZE);
-
-                            vertexMap[rawVertexIndex] = nextVertexIndex;
-
-                        }
-                        chunkTriangles[nextTriangleIndex++] = vertexMap[rawVertexIndex] - 1;
+                        vertexMap[rawVertexIndex] = nextVertexIndex;
                     }
                 }
-            } 
+            }
+        }
+
+
+        for (int i = 0; i < CHUNK_VOLUME; ++i)
+        {
+            CellMesh currentMesh = m_generatedCells[chunkOffset + i];
+            int[] currentTriangles = currentMesh.GetTriangles();
+            for (uint j = 0; j < 12; j++)
+            {
+                int rawVertexIndex = currentTriangles[j];
+                if (rawVertexIndex == -1)
+                {
+                    break;
+                }
+                if (vertexMap[rawVertexIndex] - 1 == -1)
+                {
+                    Debug.Log(rawVertexIndex);
+                }
+                chunkTriangles[nextTriangleIndex++] = vertexMap[rawVertexIndex] - 1;
+            }
         }
 
         ChunkMesh chunk = new ChunkMesh(chunkVertices.Resize(nextVertexIndex), chunkTriangles.Resize(nextTriangleIndex));
@@ -462,7 +478,7 @@ public class MarchingCubeController : MonoBehaviour
 #endif
 }
 
-public static class ArrayExtension
+public static class Extensions
 {
     public unsafe static T[] Resize<T>(this T[] array, int size) where T : unmanaged
     {
@@ -482,5 +498,32 @@ public static class ArrayExtension
         }
 
         return result;
+    }
+
+    public static bool Between<TVal, TComp>(this TVal x, TComp a, TComp b, bool includeBounds = true) 
+        where TVal : IComparable<TComp> 
+        where TComp : IComparable<TVal>
+    {
+        return includeBounds ? a.SmallerEqualsThan(x) && x.SmallerEqualsThan(b) : a.SmallerThan(x) && x.SmallerThan(b);
+    }
+
+    public static bool GreaterThan<TVal, TComp>(this TVal x, TComp a) where TVal : IComparable<TComp>
+    {
+        return x.CompareTo(a) == 1;
+    }
+
+    public static bool GreaterEqualsThan<TVal, TComp>(this TVal x, TComp a) where TVal : IComparable<TComp>
+    {
+        return x.CompareTo(a) != -1;
+    }
+
+    public static bool SmallerThan<TVal, TComp>(this TVal x, TComp a) where TVal : IComparable<TComp>
+    {
+        return x.CompareTo(a) == -1;
+    }
+
+    public static bool SmallerEqualsThan<TVal, TComp>(this TVal x, TComp a) where TVal : IComparable<TComp>
+    {
+        return x.CompareTo(a) != 1;
     }
 }
