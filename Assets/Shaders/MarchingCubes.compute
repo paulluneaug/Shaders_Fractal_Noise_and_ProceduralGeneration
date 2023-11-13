@@ -4,6 +4,7 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel ComputeNoise
 #pragma kernel MarchingCubes
+#pragma kernel ChunkifyCells
 
 #if CHUNKIFY_WITH_CSHADER
 #pragma kernel ChunkifyMeshes
@@ -37,7 +38,9 @@ struct CubeMesh
 struct ChunkMesh
 {
     float3 Vertices[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+    int VerticesCount;
     int Triangles[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+    int TrianglesCount;
 };
 
 
@@ -203,48 +206,73 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
     _GeneratedCells[index] = mesh;
 }
 
-#if CHUNKIFY_WITH_CSHADER
-[numthreads(8, 8, 8)]
-void ChunkifyMeshes(uint3 id : SV_DispatchThreadID)
-{    
-    uint chunkOffset = ChunkCoordinatesToChunkIndex(id.xyz, _ChunkZoneSizeToGenerate) * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
-    
-    float3 chunkVertices[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
-    int chunkTriangles[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
-    
-    int vertexMap[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
-    uint nextVertexIndex = 0;
-    uint nextTriangleIndex = 0;
-    
-    [fastopt]
-    for (uint i = 0; i < CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE; i++)
+void ChunkifyCellsForChunk(uint chunkIndex)
+{
+    uint chunkOffset = chunkIndex * CHUNK_VOLUME;
+
+    float3 chunkVertices[12 * CHUNK_VOLUME];
+    int chunkTriangles[12 * CHUNK_VOLUME];
+
+    int vertexMap[12 * CHUNK_VOLUME];
+    int nextVertexIndex = 0;
+    int nextTriangleIndex = 0;
+
+    for (int i = 0; i < CHUNK_VOLUME; ++i)
     {
         CubeMesh currentMesh = _GeneratedCells[chunkOffset + i];
+        float3 currentVertices[12] = currentMesh.Vertices;
+        int currentTriangles[12] = currentMesh.Triangles;
+
+        int currentMeshMinVerticeIndex = i * 12;
+        int currentMeshMaxVerticeIndex = (i + 1) * 12 - 1;
+
         for (uint j = 0; j < 12; j++)
         {
-            int rawVertexIndex = currentMesh.Triangles[j];
+            int rawVertexIndex = currentTriangles[j];
             if (rawVertexIndex == -1)
             {
                 break;
             }
-            
-            if (vertexMap[rawVertexIndex] == 0)
-            {
-                chunkVertices[nextVertexIndex] = currentMesh.Vertices[rawVertexIndex % 12];
-                
-                nextVertexIndex++;
-                vertexMap[rawVertexIndex] = nextVertexIndex;
 
+
+            if (Between(rawVertexIndex, currentMeshMinVerticeIndex, currentMeshMaxVerticeIndex))
+            {
+                if (vertexMap[rawVertexIndex] == 0)
+                {
+                    chunkVertices[nextVertexIndex++] = currentVertices[rawVertexIndex % 12] + GetCoordinatesFromIndex(rawVertexIndex / 12, uint3(1, 1, 1) * CHUNK_SIZE);
+
+                    vertexMap[rawVertexIndex] = nextVertexIndex;
+                }
+            }
+        }
+    }
+
+    for (i = 0; i < CHUNK_VOLUME; ++i)
+    {
+        int currentTriangles[12] = _GeneratedCells[chunkOffset + i].Triangles;
+        
+        for (uint j = 0; j < 12; j++)
+        {
+            int rawVertexIndex = currentTriangles[j];
+            if (rawVertexIndex == -1)
+            {
+                break;
             }
             chunkTriangles[nextTriangleIndex++] = vertexMap[rawVertexIndex] - 1;
         }
     }
-    chunkTriangles[nextTriangleIndex++] = -1;
-    
+
     ChunkMesh chunk;
-    chunk.Triangles = chunkTriangles;
     chunk.Vertices = chunkVertices;
-    
-    _GeneratedChunks[id.x + id.y * _ChunkZoneSizeToGenerate.x + id.z * _ChunkZoneSizeToGenerate.x * _ChunkZoneSizeToGenerate.y] = chunk;
+    chunk.VerticesCount = nextVertexIndex;
+    chunk.Triangles = chunkTriangles;
+    chunk.TrianglesCount = nextTriangleIndex;
+
+    _GeneratedChunks[chunkIndex] = chunk;
 }
-#endif
+
+[numthreads(1, 1, 1)]
+void ChunkifyCells(uint3 id : SV_DispatchThreadID)
+{
+    ChunkifyCellsForChunk(id.x + id.y * _ChunkZoneSizeToGenerate.x + id.z * _ChunkZoneSizeToGenerate.x * _ChunkZoneSizeToGenerate.y);
+}

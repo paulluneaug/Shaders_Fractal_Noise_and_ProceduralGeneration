@@ -139,7 +139,47 @@ public static class MeshStructs
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public readonly struct ChunkMesh : IMesh
+    public unsafe struct ChunkMesh : IMesh
+    {
+        private const int VERTICES_COUNT = 12 * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE;
+        private const int TRIANGLES_COUNT = 12 * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE;
+
+        private fixed float m_vertices[VERTICES_COUNT * 3];
+        private int m_verticesCount;
+        private fixed int m_triangles[TRIANGLES_COUNT];
+        private int m_trianglesCount;
+
+
+        public readonly int[] GetTriangles()
+        {
+            fixed (int* trianglesRawPrt = m_triangles)
+            {
+                IntPtr trianglesPtr = new IntPtr(trianglesRawPrt);
+                {
+                    return MeshStructsUtils.GetTriangles(trianglesPtr, m_trianglesCount, false);
+                }
+            }
+        }
+
+        public readonly Vector3[] GetVertices()
+        {
+            fixed (float* verticesRawPrt = m_vertices)
+            {
+                IntPtr verticesPtr = new IntPtr(verticesRawPrt);
+                {
+                    return MeshStructsUtils.GetVertices(verticesPtr, m_verticesCount * 3, false);
+                }
+            }
+        }
+
+        public readonly Mesh GetMesh()
+        {
+            return MeshStructsUtils.GetMesh(this);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public readonly struct CPUChunkMesh : IMesh
     {
         private const int VERTICES_COUNT = 12 * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE;
         private const int TRIANGLES_COUNT = 12 * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE;
@@ -147,7 +187,7 @@ public static class MeshStructs
         private readonly Vector3[] Vertices;
         private readonly int[] Triangles;
 
-        public ChunkMesh(Vector3[] vertices, int[] triangles)
+        public CPUChunkMesh(Vector3[] vertices, int[] triangles)
         {
             Vertices = vertices;
             Triangles = triangles;

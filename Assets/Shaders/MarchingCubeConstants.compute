@@ -364,5 +364,6 @@ static const int _TriangleTable[256][12] =
 };
 
 static const uint CHUNK_SIZE = 16;
+static const uint CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 
 #endif

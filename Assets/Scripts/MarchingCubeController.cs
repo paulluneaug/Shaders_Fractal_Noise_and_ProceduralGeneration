@@ -58,9 +58,11 @@ public class MarchingCubeController : MonoBehaviour
     // MarchingCube CS
     private const string NOISE_KERNEL_NAME = "ComputeNoise";
     private const string MARCHING_CUBE_KERNEL_NAME = "MarchingCubes";
+    private const string CHUNKIFY_CELLS_KERNEL_NAME = "ChunkifyCells";
 
     private const string NOISE_TEXTURE = "_NoiseTexture";
-    private const string GENERATED_MESHES = "_GeneratedCells";
+    private const string GENERATED_CELLS = "_GeneratedCells";
+    private const string GENERATED_CHUNKS = "_GeneratedChunks";
 
     private const string CHUNK_ZONE_TO_GENERATE_SIZE = "_ChunkZoneSizeToGenerate";
     private const string CHUNK_OFFSET = "_ChunkOffset";
@@ -70,13 +72,6 @@ public class MarchingCubeController : MonoBehaviour
     private const string NOISE_LAYERS_COUNT = "_NoiseLayersCount";
     private const string NOISE_LAYERS = "_NoiseLayers";
     private const string NOISE_WEIGHTS_MULTIPLIER = "_NoiseWeigthsMultiplier";
-
-    // MeshSimplifier CS
-    private const string CHUNKIFY_MESHES_KERNEL_NAME = "ChunkifyMeshes";
-    private const string SIMPLIFY_CHUNKS_KERNEL_NAME = "SimplifyChunks";
-
-    private const string REORGANIZED_MESHES_INDEX_MAP = "_ReorganizedMeshesIndexMap";
-    private const string RESULT_CHUNKS = "_ResultChunks";
     #endregion
 
     #region Properties
@@ -110,9 +105,11 @@ public class MarchingCubeController : MonoBehaviour
     // MarchingCube CS
     [NonSerialized] private int m_noiseKernelID = 0;
     [NonSerialized] private int m_marchingCubeKernelID = 0;
+    [NonSerialized] private int m_chunkifyCellsKernelID = 0;
 
     [NonSerialized] private int m_noiseTexturePropertyID = 0;
-    [NonSerialized] private int m_generatedMeshesPropertyID = 0;
+    [NonSerialized] private int m_generatedCellsPropertyID = 0;
+    [NonSerialized] private int m_generatedChunksPropertyID = 0;
 
     [NonSerialized] private int m_chunkZoneSizeToGeneratePropertyID = 0;
     [NonSerialized] private int m_chunkOffsetPropertyID = 0;
@@ -122,21 +119,14 @@ public class MarchingCubeController : MonoBehaviour
     [NonSerialized] private int m_noiseLayerCountPropertyID = 0;
     [NonSerialized] private int m_noiseLayersPropertyID = 0;
     [NonSerialized] private int m_noiseWeightsMultiplierPropertyID = 0;
-
-    // MeshSimplifier CS
-    [NonSerialized] private int m_chunkifyMeshesKernelID = 0;
-    [NonSerialized] private int m_simplifyChunksKernelID = 0;
-
-    [NonSerialized] private int m_reorganizedMeshesIndexMapPropertyID = 0;
-    [NonSerialized] private int m_resultChunksPropertyID = 0;
     #endregion
 
     [NonSerialized] private ScriptExecutionTimeRecorder m_recorder = null;
 
     [NonSerialized] private RenderTexture m_noiseTexture = null;
     [NonSerialized] private ComputeBuffer m_noiseLayersBuffer = null;
-    [NonSerialized] private ComputeBuffer m_generatedMeshesBuffer = null;
-    [NonSerialized] private ComputeBuffer m_reorganizedMeshesIndexMapBuffer = null;
+    [NonSerialized] private ComputeBuffer m_generatedCellsBuffer = null;
+    [NonSerialized] private ComputeBuffer m_generatedChunksBuffer = null;
 
     [NonSerialized] private Transform m_transform = null;
 
@@ -144,6 +134,7 @@ public class MarchingCubeController : MonoBehaviour
 
     [NonSerialized] private CellMesh[] m_generatedCells = null;
     [NonSerialized] private ChunkMesh[] m_generatedChunks = null;
+    [NonSerialized] private CPUChunkMesh[] m_generatedCPUChunks = null;
 
     private void Awake()
     {
@@ -161,9 +152,11 @@ public class MarchingCubeController : MonoBehaviour
         // MarchingCube CS
         m_noiseKernelID = m_marchingCubeCS.FindKernel(NOISE_KERNEL_NAME);
         m_marchingCubeKernelID = m_marchingCubeCS.FindKernel(MARCHING_CUBE_KERNEL_NAME);
+        m_chunkifyCellsKernelID = m_marchingCubeCS.FindKernel(CHUNKIFY_CELLS_KERNEL_NAME);
 
         m_noiseTexturePropertyID = Shader.PropertyToID(NOISE_TEXTURE);
-        m_generatedMeshesPropertyID = Shader.PropertyToID(GENERATED_MESHES);
+        m_generatedCellsPropertyID = Shader.PropertyToID(GENERATED_CELLS);
+        m_generatedChunksPropertyID = Shader.PropertyToID(GENERATED_CHUNKS);
 
         m_chunkZoneSizeToGeneratePropertyID = Shader.PropertyToID(CHUNK_ZONE_TO_GENERATE_SIZE);
         m_chunkOffsetPropertyID = Shader.PropertyToID(CHUNK_OFFSET);
@@ -174,12 +167,6 @@ public class MarchingCubeController : MonoBehaviour
         m_noiseLayerCountPropertyID = Shader.PropertyToID(NOISE_LAYERS_COUNT);
         m_noiseWeightsMultiplierPropertyID = Shader.PropertyToID(NOISE_WEIGHTS_MULTIPLIER);
 
-        // MeshSimplifier CS
-        m_chunkifyMeshesKernelID = m_meshSimplifierCS.FindKernel(CHUNKIFY_MESHES_KERNEL_NAME);
-        m_simplifyChunksKernelID = m_meshSimplifierCS.FindKernel(SIMPLIFY_CHUNKS_KERNEL_NAME);
-
-        m_reorganizedMeshesIndexMapPropertyID = Shader.PropertyToID(REORGANIZED_MESHES_INDEX_MAP);
-        m_resultChunksPropertyID = Shader.PropertyToID(RESULT_CHUNKS);
     }
 
     private void UpdateShaderProperty()
@@ -187,7 +174,6 @@ public class MarchingCubeController : MonoBehaviour
         m_recorder.Reset();
 
         SetMarchingCubeShaderProperties();
-        //SetMeshSimplifierShaderProperties();
 
         m_recorder.AddEvent("Shader properties assignation");
 
@@ -205,17 +191,25 @@ public class MarchingCubeController : MonoBehaviour
 
         m_recorder.AddEvent("Marching cubes Shader Dispatch");
 
-        //m_meshSimplifierCS.Dispatch(m_chunkifyMeshesKernelID, groupX, groupY, groupZ);
+        groupX = m_chunkZoneSizeToGenerate.x;
+        groupY = m_chunkZoneSizeToGenerate.y;
+        groupZ = m_chunkZoneSizeToGenerate.z;
+        m_marchingCubeCS.Dispatch(m_chunkifyCellsKernelID, groupX, groupY, groupZ);
 
         m_recorder.AddEvent("Chunkify Mesh Shader Dispatch");
 
-        m_generatedCells = new CellMesh[CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z];
-        m_generatedMeshesBuffer.GetData(m_generatedCells);
-        m_recorder.AddEvent("Mesh acquisition from shader");
+        m_generatedChunks = new ChunkMesh[m_chunkZoneSizeToGenerate.x * m_chunkZoneSizeToGenerate.y * m_chunkZoneSizeToGenerate.z];
+        m_generatedChunksBuffer.GetData(m_generatedChunks);
 
-        ChunkifyMeshes(m_generatedCells);
+        m_recorder.AddEvent("Chunk Meshes acquisition from shader");
 
-        m_recorder.AddEvent("Chunkify Operation");
+        //m_generatedCells = new CellMesh[CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z];
+        //m_generatedCellsBuffer.GetData(m_generatedCells);
+        //m_recorder.AddEvent("Mesh acquisition from shader");
+
+        //ChunkifyMeshes();
+
+        //m_recorder.AddEvent("Chunkify Operation");
 
         for (int i = 0; i < m_generatedChunks.Length; i++)
         {
@@ -227,18 +221,6 @@ public class MarchingCubeController : MonoBehaviour
         m_recorder.LogAllEventsTimeSpan();
     }
 
-    private void SetMeshSimplifierShaderProperties()
-    {
-        m_meshSimplifierCS.SetBuffer(m_chunkifyMeshesKernelID, m_generatedMeshesPropertyID, m_generatedMeshesBuffer);
-
-        m_meshSimplifierCS.SetInts(m_chunkZoneSizeToGeneratePropertyID, m_chunkZoneSizeToGenerate.x, m_chunkZoneSizeToGenerate.y, m_chunkZoneSizeToGenerate.z);
-
-        m_reorganizedMeshesIndexMapBuffer?.Release();
-        m_reorganizedMeshesIndexMapBuffer = new ComputeBuffer(CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z, sizeof(int));
-        m_meshSimplifierCS.SetBuffer(m_chunkifyMeshesKernelID, m_reorganizedMeshesIndexMapPropertyID, m_reorganizedMeshesIndexMapBuffer);
-
-    }
-
     private void SetMarchingCubeShaderProperties()
     {
         GPUNoiseLayer3D[] gpuNoiseLayers = m_noiseLayers
@@ -248,10 +230,18 @@ public class MarchingCubeController : MonoBehaviour
         int layerCount = gpuNoiseLayers.Length;
         float weightMultiplier = 1.0f / gpuNoiseLayers.Select(layer => layer.LayerWeigth).Sum();
 
-        // Meshes Buffer
-        m_generatedMeshesBuffer?.Release();
-        m_generatedMeshesBuffer = new ComputeBuffer(CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z, Marshal.SizeOf(typeof(CellMesh)));
-        m_marchingCubeCS.SetBuffer(m_marchingCubeKernelID, m_generatedMeshesPropertyID, m_generatedMeshesBuffer);
+        // Cells Meshes Buffer
+        m_generatedCellsBuffer?.Release();
+        m_generatedCellsBuffer = new ComputeBuffer(CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z, Marshal.SizeOf(typeof(CellMesh)));
+
+        m_marchingCubeCS.SetBuffer(m_marchingCubeKernelID, m_generatedCellsPropertyID, m_generatedCellsBuffer);
+        m_marchingCubeCS.SetBuffer(m_chunkifyCellsKernelID, m_generatedCellsPropertyID, m_generatedCellsBuffer);
+
+        // Cells Meshes Buffer
+        m_generatedChunksBuffer?.Release();
+        m_generatedChunksBuffer = new ComputeBuffer(m_chunkZoneSizeToGenerate.x * m_chunkZoneSizeToGenerate.y * m_chunkZoneSizeToGenerate.z, Marshal.SizeOf(typeof(ChunkMesh)));
+
+        m_marchingCubeCS.SetBuffer(m_chunkifyCellsKernelID, m_generatedChunksPropertyID, m_generatedChunksBuffer);
 
         // Other variables
         m_marchingCubeCS.SetFloat(m_thresholdID, m_threshold);
@@ -279,10 +269,10 @@ public class MarchingCubeController : MonoBehaviour
     }
 
     #region Mesh Creation
-    private void ChunkifyMeshes(CellMesh[] cells)
+    private void ChunkifyMeshes()
     {
         int chunkCount = m_chunkZoneSizeToGenerate.x * m_chunkZoneSizeToGenerate.y * m_chunkZoneSizeToGenerate.z;
-        m_generatedChunks = new ChunkMesh[chunkCount];
+        m_generatedCPUChunks = new CPUChunkMesh[chunkCount];
         m_utils = new ChunkifierUtils(CHUNK_SIZE, (m_chunkZoneSizeToGenerate.x, m_chunkZoneSizeToGenerate.y, m_chunkZoneSizeToGenerate.z));
         Parallel.For(0, chunkCount, (int chunkIndex) => ChunkifyCellsForChunk(chunkIndex));
 
@@ -387,9 +377,9 @@ public class MarchingCubeController : MonoBehaviour
             }
         }
 
-        ChunkMesh chunk = new ChunkMesh(chunkVertices.Resize(nextVertexIndex), chunkTriangles.Resize(nextTriangleIndex));
+        CPUChunkMesh chunk = new CPUChunkMesh(chunkVertices.Resize(nextVertexIndex), chunkTriangles.Resize(nextTriangleIndex));
 
-        m_generatedChunks[chunkIndex] = chunk;
+        m_generatedCPUChunks[chunkIndex] = chunk;
     }
 
 #if UNITY_EDITOR

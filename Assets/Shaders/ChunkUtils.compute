@@ -139,4 +139,13 @@ bool IsInsideChunk(uint3 coords)
 
 }
 
+
+uint3 GetCoordinatesFromIndex(int index, uint3 zone)
+{
+    int z = index / (zone.x * zone.y);
+    int indexY = index % (zone.x * zone.y);
+    
+    return uint3(indexY % zone.x, indexY / zone.x, z);
+}
+
 #endif
