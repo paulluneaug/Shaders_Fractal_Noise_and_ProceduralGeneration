@@ -80,7 +80,7 @@ static const uint3 _CubeContainingVertexOffset[12] =
     uint3(0, 0, 1), // 7
     uint3(0, 0, 0), // 8
     uint3(1, 0, 0), // 9
-    uint3(1, 0, 1), // 10
+    uint3(1, 1, 0), // 10
     uint3(0, 1, 0), // 11
 };
 
