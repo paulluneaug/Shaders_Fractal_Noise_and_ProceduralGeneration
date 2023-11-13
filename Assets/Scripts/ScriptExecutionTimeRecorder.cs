@@ -37,7 +37,7 @@ public class ScriptExecutionTimeRecorder
     {
         if (string.IsNullOrEmpty(eventName))
         {
-            Debug.LogError($"This event name is null or empty, it is not a valid name");
+            Debug.LogError($"[Recorder] This event name is null or empty, it is not a valid name");
             return;
         }
 
@@ -49,7 +49,7 @@ public class ScriptExecutionTimeRecorder
         );
         m_events.Add(newEvent);
 
-        if(logImmediatly)
+        if (logImmediatly)
         {
             Debug.Log(newEvent.ToString());
         }
@@ -65,7 +65,7 @@ public class ScriptExecutionTimeRecorder
         }
         else
         {
-            Debug.LogWarning("No events to log");
+            Debug.LogWarning("[Recorder] No events to log");
         }
     }
 

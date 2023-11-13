@@ -1,0 +1,92 @@
+#ifndef __NOISE_UTILS_INCLUDED__
+#define __NOISE_UTILS_INCLUDED__ 1
+
+float Smoothstep(float w)
+{
+    w = clamp(w, 0.0f, 1.0f);
+    return w * w * (3.0f - 2.0f * w);
+}
+
+float Smootherstep(float w)
+{
+    w = clamp(w, 0.0f, 1.0f);
+    return ((w * (w * 6.0 - 15.0) + 10.0) * w * w * w);
+}
+
+float Interpolate(float a0, float a1, float w, bool smootherStep)
+{
+    //return (a1 - a0) * w + a0;
+    float smoothW = 0;
+    if (smootherStep)
+    {
+        smoothW = Smootherstep(w);
+    }
+    else
+    {
+        smoothW = Smoothstep(w);
+    }
+
+    return a0 + (a1 - a0) * smoothW;
+}
+
+// Hash function from H. Schechter & R. Bridson, goo.gl/RXiKaH
+uint Hash(uint s)
+{
+    s ^= 2747636419u;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    return s;
+}
+
+float RandomFloat(inout uint seed)
+{
+    seed = Hash(seed);
+    float random = float(seed) / 4294967295.0; // 2^32-1 
+    return random * 2 - 1; // [-1;1]
+}
+
+float3 RandomFloat3InsideUnitSphere(inout uint seed)
+{
+    float3 attempt;
+    do
+    {
+        attempt = float3(RandomFloat(seed), RandomFloat(seed), RandomFloat(seed));
+    } while (attempt.x * attempt.x + attempt.y * attempt.y + attempt.z * attempt.z > 1);
+    return attempt;
+}
+
+// Noise generation inspired by the Perlin Noise Wikipedia article (https://en.wikipedia.org/wiki/Perlin_noise)
+float3 RandomGradient(int ix, int iy, int iz, int gradientOffset)
+{
+    // No precomputed gradients mean this works for any number of grid coordinates
+    uint w = 8 * 4;
+    uint s = w / 2;
+    uint a = ix, b = iy, c = iz;
+    a *= 3284157443;
+    b ^= a << s | a >> w - s;
+    b *= 1911520717 - abs(gradientOffset);
+    c ^= b << s | b >> w - s;
+    c *= 1529716214;
+    a ^= c << s | c >> w - s;
+    a *= 2048419325;
+    
+    return RandomFloat3InsideUnitSphere(a);
+}
+
+float DotGridGradient(int ix, int iy, int iz, float x, float y, float z, int gradientOffset)
+{
+    float3 randomVec = RandomGradient(ix, iy, iz, gradientOffset);
+    
+    // Compute the distance vector
+    float dx = x - (float) ix;
+    float dy = y - (float) iy;
+    float dz = z - (float) iz;
+ 
+    // Compute the dot-product
+    return (dx * randomVec.x + dy * randomVec.y + dz * randomVec.z);
+}
+
+#endif

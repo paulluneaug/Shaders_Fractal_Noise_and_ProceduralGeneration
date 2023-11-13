@@ -1,0 +1,60 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel ChunkifyMeshes
+#pragma kernel SimplifyChunks
+
+static const uint CHUNK_SIZE = 16;
+
+struct CubeMesh
+{
+    float3 Vertices[12];
+    int Triangles[12];
+};
+
+struct ChunkMesh
+{
+    float3 Vertices[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+    int Triangles[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
+};
+
+
+RWStructuredBuffer<CubeMesh> _GeneratedMeshes;
+RWStructuredBuffer<ChunkMesh> _ResultChunks;
+
+RWStructuredBuffer<int> _ReorganizedMeshesIndexMap;
+
+int3 _ChunkZoneSizeToGenerate;
+
+// 
+
+
+
+
+[numthreads(8, 8, 8)]
+void ChunkifyMeshes(uint3 id : SV_DispatchThreadID)
+{
+    uint3 zoneToGenerateSize = _ChunkZoneSizeToGenerate * CHUNK_SIZE;
+    uint index = id.x + id.y * zoneToGenerateSize.x + id.z * zoneToGenerateSize.x * zoneToGenerateSize.y;
+    
+#if 0
+    _ReorganizedMeshesIndexMap[index] = CoordinatesToChunkifiedIndex(id.xyz);
+#else
+    _ReorganizedMeshesIndexMap[index] = index;
+#endif
+
+}
+
+void SimplifyMesh(uint chunkIndex, uint meshSize, uint m0_offset, uint m1_offset, uint3 axis)
+{
+    
+}
+
+[numthreads(8, 8, 8)]
+void SimplifyChunks(uint3 id : SV_DispatchThreadID)
+{
+    // id.x = ChunkIndex
+    // id.y = index
+    // id.z = Iteration
+    
+    
+    
+}
