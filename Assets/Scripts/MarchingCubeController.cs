@@ -54,7 +54,6 @@ public class MarchingCubeController : MonoBehaviour
 
     #endregion
 
-
     #region Shader Properties Names
     // MarchingCube CS
     private const string NOISE_KERNEL_NAME = "ComputeNoise";
@@ -339,7 +338,6 @@ public class MarchingCubeController : MonoBehaviour
             CellMesh currentMesh = m_generatedCells[chunkOffset + i];
             Vector3[] currentVertices = currentMesh.GetVertices();
             int[] currentTriangles = currentMesh.GetTriangles();
-            Vector3[] debugValues = currentMesh.GetDebugValues();
 
             int currentMeshMinVerticeIndex = i * 12;
             int currentMeshMaxVerticeIndex = (i + 1) * 12 - 1;
@@ -369,7 +367,6 @@ public class MarchingCubeController : MonoBehaviour
                 }
             }
         }
-
 
         for (int i = 0; i < CHUNK_VOLUME; ++i)
         {

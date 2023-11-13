@@ -32,7 +32,6 @@ struct CubeMesh
 {
     float3 Vertices[12];
     int Triangles[12];
-    float3 DebugValues[12];
 };
 
 struct ChunkMesh
@@ -135,13 +134,10 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
     CubeMesh mesh;
     float3 meshVertices[12] = _DefaultVertices;
     int meshTriangles[12] = _DefaultTriangles;
-    float3 debugValues[12] = _DefaultVertices;
     
     uint3 localCoordinates = CoordinatesToLocalCoordinates(id.xyz);
     uint cellID = LocalCoordinatesToChunkifiedLocalOffset(localCoordinates) * 12;
     
-    debugValues[11] = localCoordinates;
-    debugValues[10] = float3(cellID, 0, 0);
     
     // Determine the index in _TriangleTable of the current mesh
     uint meshIndex = 0;
@@ -165,9 +161,8 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
         
         uint3 cubeCoordsOffset = _CubeContainingVertexOffset[rawVertexIndex];
         bool isVertexInsideChunk = IsInsideChunk(localCoordinates + cubeCoordsOffset);
-        bool isVertexInThisCell = _VertexBelongToCurrentCell[rawVertexIndex] || !isVertexInsideChunk;
+        bool isVertexInThisCell = Equals(cubeCoordsOffset, uint3(0, 0, 0)) || !isVertexInsideChunk;
         
-        int debug = rawVertexIndex;
         
         if (!isVertexInThisCell)
         {
@@ -179,7 +174,7 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
             meshTriangles[j] += cellID;
         }
         
-        if (/*true || */(isVertexInThisCell && Equals(meshVertices[rawVertexIndex], _EmptyVertice)))
+        if (isVertexInThisCell && Equals(meshVertices[rawVertexIndex], _EmptyVertice))
         {
             int2 edgeVertexIndices = _EdgeVertexIndices[rawVertexIndex];
             float2 noiseValues = float2(_NoiseTexture[id.xyz + _VerticesCoordinates[edgeVertexIndices.x]], _NoiseTexture[id.xyz + _VerticesCoordinates[edgeVertexIndices.y]]);
@@ -189,8 +184,6 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
             meshVertices[rawVertexIndex] = vertexPos;
             
         }
-        //debugValues[rawVertexIndex] = cubeCoordsOffset;
-        debugValues[debug] = float3(debug, rawVertexIndex, isVertexInThisCell ? 1.0 : 0.0);
         
 #if REORGANIZE_INDICES
         if (isExtVertex)
@@ -207,7 +200,6 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
     
     mesh.Vertices = meshVertices;
     mesh.Triangles = meshTriangles;
-    mesh.DebugValues = debugValues;
     _GeneratedCells[index] = mesh;
 }
 
