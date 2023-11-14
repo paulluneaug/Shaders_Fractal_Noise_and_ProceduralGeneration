@@ -1,8 +1,11 @@
+using Cysharp.Threading.Tasks;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
-
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Animations;
 using UnityEngine.Rendering;
@@ -10,7 +13,7 @@ using UnityEngine.Rendering;
 using static Constants;
 using static MeshStructs;
 
-public class MarchingCubeController : MonoBehaviour
+public class MarchingCubeGenerator : MonoBehaviour
 {
     #region Structs
     [Serializable]
@@ -76,26 +79,20 @@ public class MarchingCubeController : MonoBehaviour
     private Vector3Int CellOffset => m_chunkOffset * CHUNK_SIZE;
 
     private Vector3Int CellsToGenerateSize => m_chunkZoneSizeToGenerate * CHUNK_SIZE;
+
+    private int ChunksCount => m_chunkZoneSizeToGenerate.x * m_chunkZoneSizeToGenerate.y * m_chunkZoneSizeToGenerate.z;
+    private int CellsCount => ChunksCount * CHUNK_VOLUME;
     #endregion
 
     #region Serialized Fields
     [SerializeField] private ComputeShader m_marchingCubeCS = null;
-    [SerializeField] private ComputeShader m_meshSimplifierCS = null;
 
-    [SerializeField] private Vector3Int m_chunkOffset = Vector3Int.zero;
-    [SerializeField] private Vector3Int m_chunkZoneSizeToGenerate = Vector3Int.one * 4;
 
     [SerializeField, Range(0.0f, 1.0f)] private float m_threshold = 0.5f;
 
     [SerializeField] private NoiseLayer3D[] m_noiseLayers = null;
 
     [SerializeField] private Material m_material = null;
-
-    [Header("Gizmos")]
-    [SerializeField] private Axis m_axisToDrawChunkBorders = Axis.X | Axis.Y | Axis.Z;
-    [SerializeField] private Color m_chunksBorderColor = Color.red;
-    [SerializeField] private Axis m_axisToDrawCellBorders = Axis.X | Axis.Y | Axis.Z;
-    [SerializeField] private Color m_cellsBorderColor = Color.yellow;
     #endregion
 
     // Cache
@@ -117,6 +114,9 @@ public class MarchingCubeController : MonoBehaviour
     [NonSerialized] private int m_noiseWeightsMultiplierPropertyID = 0;
     #endregion
 
+    [NonSerialized] private Vector3Int m_chunkOffset = Vector3Int.zero;
+    [NonSerialized] private Vector3Int m_chunkZoneSizeToGenerate = Vector3Int.one * 4;
+
     [NonSerialized] private ScriptExecutionTimeRecorder m_recorder = null;
 
     [NonSerialized] private RenderTexture m_noiseTexture = null;
@@ -125,8 +125,10 @@ public class MarchingCubeController : MonoBehaviour
 
     [NonSerialized] private Transform m_transform = null;
 
-    [NonSerialized] private CellMesh[] m_generatedCells = null;
-    [NonSerialized] private ChunkMesh[] m_generatedChunks = null;
+    [NonSerialized] private ChunkMesh[] m_generatedChunksMeshes = null;
+    [NonSerialized] private Chunk[] m_generatedChunks = null;
+
+    [NonSerialized] private Action<Chunk[]> m_generationCallback;
 
     private void Awake()
     {
@@ -135,8 +137,15 @@ public class MarchingCubeController : MonoBehaviour
         m_recorder = new ScriptExecutionTimeRecorder();
 
         m_transform = transform;
+    }
 
-        UpdateShaderProperty();
+    public void GenerateZone(Vector3Int zoneToGenerate, Vector3Int offset, Action<Chunk[]> callback)
+    {
+        m_chunkZoneSizeToGenerate = zoneToGenerate;
+        m_chunkOffset = offset;
+        m_generationCallback = callback;
+
+        StartCoroutine(GenerateChunksAsync().AsUniTask().ToCoroutine());
     }
 
     private void GetPropertiesIDs()
@@ -158,12 +167,19 @@ public class MarchingCubeController : MonoBehaviour
         m_noiseWeightsMultiplierPropertyID = Shader.PropertyToID(NOISE_WEIGHTS_MULTIPLIER);
     }
 
-    private void UpdateShaderProperty()
+    private async Task GenerateChunksAsync()
+    {
+
+        await GenerateChunks();
+
+        m_generationCallback.Invoke(m_generatedChunks);
+    }
+
+    private async Task GenerateChunks()
     {
         m_recorder.Reset();
 
         SetMarchingCubeShaderProperties();
-        //SetMeshSimplifierShaderProperties();
 
         m_recorder.AddEvent("Shader properties assignation");
 
@@ -181,21 +197,22 @@ public class MarchingCubeController : MonoBehaviour
 
         m_recorder.AddEvent("Marching cubes Shader Dispatch");
 
-        //m_meshSimplifierCS.Dispatch(m_chunkifyMeshesKernelID, groupX, groupY, groupZ);
+        //  generatedCells = new NativeArray<CellMesh>(CellsCount, Allocator.Persistent);
+        AsyncGPUReadbackRequest request = await AsyncGPUReadback.Request(m_generatedMeshesBuffer);
+        NativeArray<CellMesh> generatedCells = request.GetData<CellMesh>();
 
-        m_recorder.AddEvent("Chunkify Mesh Shader Dispatch");
-
-        m_generatedCells = new CellMesh[CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z];
-        m_generatedMeshesBuffer.GetData(m_generatedCells);
         m_recorder.AddEvent("Mesh acquisition from shader");
 
-        ChunkifyMeshes();
+        ChunkifyMeshes(generatedCells);
+
+        generatedCells.Dispose();
 
         m_recorder.AddEvent("Chunkify Operation");
 
-        for (int i = 0; i < m_generatedChunks.Length; i++)
+        m_generatedChunks = new Chunk[ChunksCount];
+        for (int i = 0; i < m_generatedChunksMeshes.Length; i++)
         {
-            CreateMesh(m_generatedChunks[i], i);
+            CreateMesh(m_generatedChunksMeshes[i], i);
         }
 
         m_recorder.AddEvent("Meshes Generation");
@@ -214,7 +231,7 @@ public class MarchingCubeController : MonoBehaviour
 
         // Meshes Buffer
         m_generatedMeshesBuffer?.Release();
-        m_generatedMeshesBuffer = new ComputeBuffer(CellsToGenerateSize.x * CellsToGenerateSize.y * CellsToGenerateSize.z, Marshal.SizeOf(typeof(CellMesh)));
+        m_generatedMeshesBuffer = new ComputeBuffer(CellsCount, Marshal.SizeOf(typeof(CellMesh)));
         m_marchingCubeCS.SetBuffer(m_marchingCubeKernelID, m_generatedMeshesPropertyID, m_generatedMeshesBuffer);
 
         // Other variables
@@ -243,23 +260,33 @@ public class MarchingCubeController : MonoBehaviour
     }
 
     #region Mesh Creation
-    private void ChunkifyMeshes()
+    private void ChunkifyMeshes(NativeArray<CellMesh> cells)
     {
-        int chunkCount = m_chunkZoneSizeToGenerate.x * m_chunkZoneSizeToGenerate.y * m_chunkZoneSizeToGenerate.z;
-        m_generatedChunks = new ChunkMesh[chunkCount];
-        Parallel.For(0, chunkCount, (int chunkIndex) => ChunkifyCellsForChunk(chunkIndex));
+        m_generatedChunksMeshes = new ChunkMesh[ChunksCount];
 
+#if false
+        for (int i = 0; i < ChunksCount; ++i)
+        {
+            ChunkifyCellsForChunk(cells, i);
+        }
+#else
+        Parallel.For(0, ChunksCount, (int chunkIndex) => ChunkifyCellsForChunk(cells, chunkIndex));
+#endif
     }
 
     private void CreateMesh(IMesh meshStruct, int index)
     {
-        Vector3Int coordinates = GetCoordinatesFromIndex(index, m_chunkZoneSizeToGenerate) * CHUNK_SIZE;
-        Vector3 meshPos = CellOffset + coordinates;
+        Vector3Int chunkCoordinates = GetCoordinatesFromIndex(index, m_chunkZoneSizeToGenerate);
+        Vector3 meshPos = CellOffset + chunkCoordinates * CHUNK_SIZE;
         GameObject go = new GameObject($"Mesh_{index}{meshPos}");
         Transform t = go.transform;
         t.position = meshPos;
 
         t.parent = m_transform;
+
+        Chunk chunk = go.AddComponent<Chunk>();
+        chunk.ChunkPosition = chunkCoordinates;
+        m_generatedChunks[index] = chunk;
 
         MeshRenderer renderer = go.AddComponent<MeshRenderer>();
         renderer.material = m_material;
@@ -283,9 +310,9 @@ public class MarchingCubeController : MonoBehaviour
         return new Vector3Int(x, y, z);
 
     }
-    #endregion
+#endregion
 
-    private void ChunkifyCellsForChunk(int chunkIndex)
+    private void ChunkifyCellsForChunk(NativeArray<CellMesh> cells, int chunkIndex)
     {
         int chunkOffset = chunkIndex * CHUNK_VOLUME;
 
@@ -298,7 +325,7 @@ public class MarchingCubeController : MonoBehaviour
 
         for (int i = 0; i < CHUNK_VOLUME; ++i)
         {
-            CellMesh currentMesh = m_generatedCells[chunkOffset + i];
+            CellMesh currentMesh = cells[chunkOffset + i];
             Vector3[] currentVertices = currentMesh.GetVertices();
             int[] currentTriangles = currentMesh.GetTriangles();
 
@@ -333,7 +360,7 @@ public class MarchingCubeController : MonoBehaviour
 
         for (int i = 0; i < CHUNK_VOLUME; ++i)
         {
-            CellMesh currentMesh = m_generatedCells[chunkOffset + i];
+            CellMesh currentMesh = cells[chunkOffset + i];
             int[] currentTriangles = currentMesh.GetTriangles();
             for (uint j = 0; j < 12; j++)
             {
@@ -352,90 +379,8 @@ public class MarchingCubeController : MonoBehaviour
 
         ChunkMesh chunk = new ChunkMesh(chunkVertices.Resize(nextVertexIndex), chunkTriangles.Resize(nextTriangleIndex));
 
-        m_generatedChunks[chunkIndex] = chunk;
+        m_generatedChunksMeshes[chunkIndex] = chunk;
     }
-
-#if UNITY_EDITOR
-    private void OnDrawGizmos()
-    {
-        Gizmos.color = m_cellsBorderColor;
-        if ((m_axisToDrawCellBorders & Axis.X) == Axis.X)
-        {
-            for (int xy_x = 1; xy_x < CellsToGenerateSize.x; ++xy_x)
-            {
-                for (int xy_y = 1; xy_y < CellsToGenerateSize.y; ++xy_y)
-                {
-                    DrawGizmoLineInLocalSpace(m_chunkOffset + new Vector3(xy_x, xy_y, 0), m_chunkOffset + new Vector3(xy_x, xy_y, CellsToGenerateSize.z));
-                }
-            }
-
-        }
-
-        if ((m_axisToDrawCellBorders & Axis.Y) == Axis.Y)
-        {
-            for (int xz_x = 1; xz_x < CellsToGenerateSize.x; ++xz_x)
-            {
-                for (int xz_z = 1; xz_z < CellsToGenerateSize.z; ++xz_z)
-                {
-                    DrawGizmoLineInLocalSpace(m_chunkOffset + new Vector3(xz_x, 0, xz_z), m_chunkOffset + new Vector3(xz_x, CellsToGenerateSize.y, xz_z));
-                }
-            }
-
-        }
-
-        if ((m_axisToDrawCellBorders & Axis.Z) == Axis.Z)
-        {
-            for (int yz_y = 1; yz_y < CellsToGenerateSize.y; ++yz_y)
-            {
-                for (int yz_z = 1; yz_z < CellsToGenerateSize.z; ++yz_z)
-                {
-                    DrawGizmoLineInLocalSpace(m_chunkOffset + new Vector3(0, yz_y, yz_z), m_chunkOffset + new Vector3(CellsToGenerateSize.x, yz_y, yz_z));
-                }
-            }
-        }
-
-        Gizmos.color = m_chunksBorderColor;
-        if ((m_axisToDrawChunkBorders & Axis.X) == Axis.X)
-        {
-            for (int xy_x = 0; xy_x < m_chunkZoneSizeToGenerate.x + 1; ++xy_x)
-            {
-                for (int xy_y = 0; xy_y < m_chunkZoneSizeToGenerate.y + 1; ++xy_y)
-                {
-                    DrawGizmoLineInLocalSpace(m_chunkOffset + new Vector3(xy_x, xy_y, 0) * CHUNK_SIZE, m_chunkOffset + new Vector3(xy_x, xy_y, m_chunkZoneSizeToGenerate.z) * CHUNK_SIZE);
-                }
-            }
-
-        }
-
-        if ((m_axisToDrawChunkBorders & Axis.Y) == Axis.Y)
-        {
-            for (int xz_x = 0; xz_x < m_chunkZoneSizeToGenerate.x + 1; ++xz_x)
-            {
-                for (int xz_z = 0; xz_z < m_chunkZoneSizeToGenerate.z + 1; ++xz_z)
-                {
-                    DrawGizmoLineInLocalSpace(m_chunkOffset + new Vector3(xz_x, 0, xz_z) * CHUNK_SIZE, m_chunkOffset + new Vector3(xz_x, m_chunkZoneSizeToGenerate.y, xz_z) * CHUNK_SIZE);
-                }
-            }
-
-        }
-
-        if ((m_axisToDrawChunkBorders & Axis.Z) == Axis.Z)
-        {
-            for (int yz_y = 0; yz_y < m_chunkZoneSizeToGenerate.y + 1; ++yz_y)
-            {
-                for (int yz_z = 0; yz_z < m_chunkZoneSizeToGenerate.z + 1; ++yz_z)
-                {
-                    DrawGizmoLineInLocalSpace(m_chunkOffset + new Vector3(0, yz_y, yz_z) * CHUNK_SIZE, m_chunkOffset + new Vector3(m_chunkZoneSizeToGenerate.x, yz_y, yz_z) * CHUNK_SIZE);
-                }
-            }
-        }
-    }
-
-    private void DrawGizmoLineInLocalSpace(Vector3 from, Vector3 to)
-    {
-        Gizmos.DrawLine(transform.TransformPoint(from), transform.TransformPoint(to));
-    }
-#endif
 }
 
 public static class Extensions
