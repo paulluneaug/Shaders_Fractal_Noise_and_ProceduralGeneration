@@ -404,13 +404,19 @@ public class MarchingCubeGenerator : MonoBehaviour
     }
 #endregion
 
-    private void ChunkifyCellsForChunk(NativeArray<CellMesh> cells, int chunkIndex)
+    private struct UnmanageTest
     {
-        Checker(cells[1]);
-        Checker(new ChunkMesh());
+        NativeArray<int> m_unmanage;
+        private int[] a;
     }
 
-    private void Checker<T>(T a) where T : unmanaged
+    private void ChunkifyCellsForChunk(NativeArray<CellMesh> cells, int chunkIndex)
+    {
+        Checker<CellMesh>();
+        Checker<UnmanageTest>();
+    }
+
+    private void Checker<T>() where T : unmanaged
     {
 
     }
