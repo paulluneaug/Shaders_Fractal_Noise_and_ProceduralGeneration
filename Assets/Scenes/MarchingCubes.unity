@@ -688,8 +688,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_generator: {fileID: 1370045300}
   m_refPoint: {fileID: 1306004212}
-  m_chunkOffset: {x: -4, y: -4, z: -4}
-  m_chunkZoneSizeToGenerate: {x: 8, y: 8, z: 8}
+  m_chunkOffset: {x: 0, y: 0, z: 0}
+  m_chunkZoneSizeToGenerate: {x: 10, y: 10, z: 10}
   m_axisToDrawChunkBorders: 7
   m_chunksBorderColor: {r: 1, g: 0, b: 0, a: 1}
   m_axisToDrawCellBorders: 0

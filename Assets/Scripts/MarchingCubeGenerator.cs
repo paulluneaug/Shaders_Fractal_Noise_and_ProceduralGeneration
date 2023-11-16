@@ -1,17 +1,20 @@
-using Cysharp.Threading.Tasks;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
+
 using Unity.Collections;
+using Unity.Jobs;
+
 using UnityEngine;
-using UnityEngine.Animations;
 using UnityEngine.Rendering;
+
+using Cysharp.Threading.Tasks;
 
 using static Constants;
 using static MeshStructs;
+using static ArrayExtension;
+using Unity.Burst;
+using Newtonsoft.Json.Bson;
 
 public class MarchingCubeGenerator : MonoBehaviour
 {
@@ -125,7 +128,7 @@ public class MarchingCubeGenerator : MonoBehaviour
 
     [NonSerialized] private Transform m_transform = null;
 
-    [NonSerialized] private ChunkMesh[] m_generatedChunksMeshes = null;
+    [NonSerialized] private NativeArray<ChunkMesh> m_generatedChunksMeshes = default;
     [NonSerialized] private Chunk[] m_generatedChunks = null;
 
     [NonSerialized] private Action<Chunk[]> m_generationCallback;
@@ -144,8 +147,8 @@ public class MarchingCubeGenerator : MonoBehaviour
         m_chunkZoneSizeToGenerate = zoneToGenerate;
         m_chunkOffset = offset;
         m_generationCallback = callback;
-
-        StartCoroutine(GenerateChunksAsync().AsUniTask().ToCoroutine());
+        GenerateChunksAsync();
+        //StartCoroutine(GenerateChunksAsync().AsUniTask().ToCoroutine());
     }
 
     private void GetPropertiesIDs()
@@ -167,15 +170,15 @@ public class MarchingCubeGenerator : MonoBehaviour
         m_noiseWeightsMultiplierPropertyID = Shader.PropertyToID(NOISE_WEIGHTS_MULTIPLIER);
     }
 
-    private async Task GenerateChunksAsync()
+    private void GenerateChunksAsync()
     {
 
-        await GenerateChunks();
+        GenerateChunks();
 
         m_generationCallback.Invoke(m_generatedChunks);
     }
 
-    private async Task GenerateChunks()
+    private void GenerateChunks()
     {
         m_recorder.Reset();
 
@@ -198,7 +201,8 @@ public class MarchingCubeGenerator : MonoBehaviour
         m_recorder.AddEvent("Marching cubes Shader Dispatch");
 
         //  generatedCells = new NativeArray<CellMesh>(CellsCount, Allocator.Persistent);
-        AsyncGPUReadbackRequest request = await AsyncGPUReadback.Request(m_generatedMeshesBuffer);
+        AsyncGPUReadbackRequest request = AsyncGPUReadback.Request(m_generatedMeshesBuffer);
+        request.WaitForCompletion();
         NativeArray<CellMesh> generatedCells = request.GetData<CellMesh>();
 
         m_recorder.AddEvent("Mesh acquisition from shader");
@@ -210,7 +214,7 @@ public class MarchingCubeGenerator : MonoBehaviour
         m_recorder.AddEvent("Chunkify Operation");
 
         m_generatedChunks = new Chunk[ChunksCount];
-        for (int i = 0; i < m_generatedChunksMeshes.Length; i++)
+        for (int i = 0; i < ChunksCount; i++)
         {
             CreateMesh(m_generatedChunksMeshes[i], i);
         }
@@ -260,17 +264,105 @@ public class MarchingCubeGenerator : MonoBehaviour
     }
 
     #region Mesh Creation
+    [BurstCompile(CompileSynchronously = true)]
+    struct ChunkifyCellsJob : IJobFor
+    {
+        [ReadOnly]
+        private NativeArray<CellMesh> m_cells;
+
+        [WriteOnly] 
+        public NativeArray<ChunkMesh> GeneratedMeshes;
+
+        public ChunkifyCellsJob(NativeArray<CellMesh> cells, NativeArray<ChunkMesh> generatedMeshes)
+        {
+            m_cells = cells;
+            GeneratedMeshes = generatedMeshes;
+        }
+
+        public void Execute(int chunkIndex)
+        {
+            int chunkOffset = chunkIndex * CHUNK_VOLUME;
+
+            NativeArray<Vector3> chunkVertices = new NativeArray<Vector3>(12 * CHUNK_VOLUME, Allocator.Temp);
+            NativeArray<int> chunkTriangles = new NativeArray<int>(12 * CHUNK_VOLUME, Allocator.Temp);
+
+            NativeArray<int> vertexMap = new NativeArray<int>(12 * CHUNK_VOLUME, Allocator.Temp);
+            int nextVertexIndex = 0;
+            int nextTriangleIndex = 0;
+
+
+            for (int i = 0; i < CHUNK_VOLUME; ++i)
+            {
+                CellMesh currentMesh = m_cells[chunkOffset + i];
+                NativeArray<int> currentTriangles = currentMesh.GetTrianglesNativeArray();
+                NativeArray<Vector3> currentVertices = currentMesh.GetVerticesNativeArray();
+
+                int currentMeshMinVerticeIndex = i * 12;
+                int currentMeshMaxVerticeIndex = (i + 1) * 12 - 1;
+
+                for (int j = 0; j < 12; j++)
+                {
+                    int rawVertexIndex = currentTriangles[j];
+                    if (rawVertexIndex == -1)
+                    {
+                        break;
+                    }
+
+                    if (rawVertexIndex >= 12 * CHUNK_VOLUME)
+                    {
+                        Debug.LogError($"{rawVertexIndex}");
+                    }
+
+
+                    if (rawVertexIndex.Between(currentMeshMinVerticeIndex, currentMeshMaxVerticeIndex))
+                    {
+                        if (vertexMap[rawVertexIndex] == 0)
+                        {
+                            chunkVertices[nextVertexIndex++] = currentVertices[rawVertexIndex % 12] + GetCoordinatesFromIndex(rawVertexIndex / 12, Vector3Int.one * CHUNK_SIZE);
+
+                            vertexMap[rawVertexIndex] = nextVertexIndex;
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < CHUNK_VOLUME; ++i)
+            {
+                CellMesh currentMesh = m_cells[chunkOffset + i];
+                NativeArray<int> currentTriangles = currentMesh.GetTrianglesNativeArray();
+                for (int j = 0; j < 12; j++)
+                {
+                    int rawVertexIndex = currentTriangles[j];
+                    if (rawVertexIndex == -1)
+                    {
+                        break;
+                    }
+                    chunkTriangles[nextTriangleIndex++] = vertexMap[rawVertexIndex] - 1;
+                }
+            }
+
+            GeneratedMeshes[chunkIndex] = new ChunkMesh(chunkVertices.Resize(nextVertexIndex), chunkTriangles.Resize(nextTriangleIndex));
+            //m_resultHolder.GeneratedChunksMeshes[chunkIndex] = chunk;
+        }
+    }
+
     private void ChunkifyMeshes(NativeArray<CellMesh> cells)
     {
-        m_generatedChunksMeshes = new ChunkMesh[ChunksCount];
-
 #if false
         for (int i = 0; i < ChunksCount; ++i)
         {
             ChunkifyCellsForChunk(cells, i);
         }
+
+        //IEnumerable<Task> chunkifyTasks = Enumerable.Range(0, ChunksCount)
+        //    .Select(i => ChunkifyCellsForChunk(cells, i));
+
+        //await Task.WhenAll(chunkifyTasks);
 #else
-        Parallel.For(0, ChunksCount, (int chunkIndex) => ChunkifyCellsForChunk(cells, chunkIndex));
+        ChunkifyCellsJob job = new ChunkifyCellsJob(cells, new NativeArray<ChunkMesh>(cells.Length / CHUNK_VOLUME, Allocator.Persistent));
+        JobHandle jobHandle = job.Schedule(ChunksCount, default);
+        jobHandle.Complete();
+        m_generatedChunksMeshes = job.GeneratedMeshes;
 #endif
     }
 
@@ -296,7 +388,7 @@ public class MarchingCubeGenerator : MonoBehaviour
         filter.mesh = meshStruct.GetMesh();
     }
 
-    private Vector3Int GetCoordinatesFromIndex(int index, Vector3Int zone)
+    private static Vector3Int GetCoordinatesFromIndex(int index, Vector3Int zone)
     {
 #if true
 
@@ -314,97 +406,18 @@ public class MarchingCubeGenerator : MonoBehaviour
 
     private void ChunkifyCellsForChunk(NativeArray<CellMesh> cells, int chunkIndex)
     {
-        int chunkOffset = chunkIndex * CHUNK_VOLUME;
+        Checker(cells[1]);
+        Checker(new ChunkMesh());
+    }
 
-        Vector3[] chunkVertices = new Vector3[12 * CHUNK_VOLUME];
-        int[] chunkTriangles = new int[12 * CHUNK_VOLUME];
+    private void Checker<T>(T a) where T : unmanaged
+    {
 
-        int[] vertexMap = new int[12 * CHUNK_VOLUME];
-        int nextVertexIndex = 0;
-        int nextTriangleIndex = 0;
-
-        for (int i = 0; i < CHUNK_VOLUME; ++i)
-        {
-            CellMesh currentMesh = cells[chunkOffset + i];
-            Vector3[] currentVertices = currentMesh.GetVertices();
-            int[] currentTriangles = currentMesh.GetTriangles();
-
-            int currentMeshMinVerticeIndex = i * 12;
-            int currentMeshMaxVerticeIndex = (i + 1) * 12 - 1;
-
-            for (uint j = 0; j < 12; j++)
-            {
-                int rawVertexIndex = currentTriangles[j];
-                if (rawVertexIndex == -1)
-                {
-                    break;
-                }
-
-                if (rawVertexIndex >= 12 * CHUNK_VOLUME)
-                {
-                    Debug.LogError($"{rawVertexIndex}");
-                }
-
-
-                if (rawVertexIndex.Between(currentMeshMinVerticeIndex, currentMeshMaxVerticeIndex))
-                {
-                    if (vertexMap[rawVertexIndex] == 0)
-                    {
-                        chunkVertices[nextVertexIndex++] = currentVertices[rawVertexIndex % 12] + GetCoordinatesFromIndex(rawVertexIndex / 12, Vector3Int.one * CHUNK_SIZE);
-
-                        vertexMap[rawVertexIndex] = nextVertexIndex;
-                    }
-                }
-            }
-        }
-
-        for (int i = 0; i < CHUNK_VOLUME; ++i)
-        {
-            CellMesh currentMesh = cells[chunkOffset + i];
-            int[] currentTriangles = currentMesh.GetTriangles();
-            for (uint j = 0; j < 12; j++)
-            {
-                int rawVertexIndex = currentTriangles[j];
-                if (rawVertexIndex == -1)
-                {
-                    break;
-                }
-                if (vertexMap[rawVertexIndex] - 1 == -1)
-                {
-                    Debug.Log(rawVertexIndex);
-                }
-                chunkTriangles[nextTriangleIndex++] = vertexMap[rawVertexIndex] - 1;
-            }
-        }
-
-        ChunkMesh chunk = new ChunkMesh(chunkVertices.Resize(nextVertexIndex), chunkTriangles.Resize(nextTriangleIndex));
-
-        m_generatedChunksMeshes[chunkIndex] = chunk;
     }
 }
 
 public static class Extensions
 {
-    public unsafe static T[] Resize<T>(this T[] array, int size) where T : unmanaged
-    {
-        T[] result = new T[size];
-
-        if (size == 0 ||  array.Length == 0)
-        {
-            return result;
-        }
-
-        fixed (T* arrayRawPtr = &array[0])
-        {
-            fixed (T* resultRawPtr = &result[0])
-            {
-                Buffer.MemoryCopy(arrayRawPtr, resultRawPtr, size * sizeof(T), Math.Min(array.Length, size) * sizeof(T));
-            }
-        }
-
-        return result;
-    }
-
     public static bool Between<TVal, TComp>(this TVal x, TComp a, TComp b, bool includeBounds = true) 
         where TVal : IComparable<TComp> 
         where TComp : IComparable<TVal>
