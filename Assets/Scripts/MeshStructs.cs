@@ -1,5 +1,6 @@
 using System;
-using System.Drawing;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -14,6 +15,7 @@ public static class Constants
 
 public static class MeshStructs
 {
+    #region Interfaces
     public interface IMesh
     {
         Vector3[] GetVertices();
@@ -21,6 +23,12 @@ public static class MeshStructs
 
         Mesh GetMesh();
     }
+
+    public interface IChunkMesh : IMesh
+    {
+        public void SetTrianglesAndVertices(IEnumerable<Vector3> vertices, IEnumerable<int> triangles);
+    }
+    #endregion
 
     public unsafe class MeshStructsUtils
     {
@@ -155,6 +163,14 @@ public static class MeshStructs
             }
         }
 
+        public static void FillSpan<T>(Span<T> dest, IntPtr source, int length) where T : unmanaged
+        {
+            fixed (T* destPtr = &dest[0])
+            {
+                UnsafeUtility.MemCpy(destPtr, source.ToPointer(), length * UnsafeUtility.SizeOf<T>());
+            }
+        }
+
         public static Mesh GetMesh(IMesh meshStruct) 
         {
             return new Mesh
@@ -168,8 +184,8 @@ public static class MeshStructs
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct CellMesh : IMesh
     {
-        private const int VERTICES_COUNT = 12;
-        private const int TRIANGLES_COUNT = 12;
+        public const int VERTICES_COUNT = 12;
+        public const int TRIANGLES_COUNT = 12;
 
         public fixed float Vertices[VERTICES_COUNT * 3];
         public fixed int Triangles[TRIANGLES_COUNT];
@@ -196,6 +212,18 @@ public static class MeshStructs
             }
         }
 
+        public void FillSpanWithVertices(Span<Vector3> span)
+        {
+            if (span.Length < VERTICES_COUNT)
+            {
+                throw new ArgumentOutOfRangeException($"{nameof(span)}.Length is invalid : it should be {VERTICES_COUNT}");
+            }
+            fixed (float* verticesRawPtr = Vertices)
+            {
+                MeshStructsUtils.FillSpan(span, new IntPtr(verticesRawPtr), VERTICES_COUNT);
+            }
+        }
+
         public int[] GetTriangles()
         {
             fixed (int* trianglesRawPtr = Triangles)
@@ -206,6 +234,7 @@ public static class MeshStructs
                 }
             }
         }
+
         public NativeArray<int> GetTrianglesNativeArray()
         {
             fixed (int* trianglesRawPtr = Triangles)
@@ -217,6 +246,18 @@ public static class MeshStructs
             }
         }
 
+        public void FillSpanWithTriangles(Span<int> span)
+        {
+            if (span.Length < TRIANGLES_COUNT)
+            {
+                throw new ArgumentOutOfRangeException($"{nameof(span)}.Length is invalid : it should be {TRIANGLES_COUNT}");
+            }
+            fixed (int* trianglesRawPtr = Triangles)
+            {
+                MeshStructsUtils.FillSpan(span, new IntPtr(trianglesRawPtr), TRIANGLES_COUNT);
+            }
+        }
+
         public readonly Mesh GetMesh()
         {
             return MeshStructsUtils.GetMesh(this);
@@ -224,15 +265,15 @@ public static class MeshStructs
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct ChunkMesh : IMesh
+    public struct UnmanagedChunkMesh : IChunkMesh
     {
         private const int VERTICES_COUNT = 12 * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE;
         private const int TRIANGLES_COUNT = 12 * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE;
 
-        private NativeArray<Vector3> Vertices;
-        private NativeArray<int> Triangles;
+        private UnmanagedArray<Vector3> Vertices;
+        private UnmanagedArray<int> Triangles;
 
-        public ChunkMesh(NativeArray<Vector3> vertices, NativeArray<int> triangles)
+        public UnmanagedChunkMesh(UnmanagedArray<Vector3> vertices, UnmanagedArray<int> triangles)
         {
             Vertices = vertices;
             Triangles = triangles;
@@ -250,6 +291,48 @@ public static class MeshStructs
         public readonly Mesh GetMesh()
         {
             return MeshStructsUtils.GetMesh(this);
+        }
+
+        public void SetTrianglesAndVertices(IEnumerable<Vector3> vertices, IEnumerable<int> triangles)
+        {
+            Vertices = UnmanagedArray<Vector3>.FromEnumerable(vertices);
+            Triangles = UnmanagedArray<int>.FromEnumerable(triangles);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct ChunkMesh : IChunkMesh
+    {
+        private const int VERTICES_COUNT = 12 * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE;
+        private const int TRIANGLES_COUNT = 12 * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE * Constants.CHUNK_SIZE;
+
+        private Vector3[] Vertices;
+        private int[] Triangles;
+
+        public ChunkMesh(Vector3[] vertices, int[] triangles)
+        {
+            Vertices = vertices;
+            Triangles = triangles;
+        }
+
+        public readonly int[] GetTriangles()
+        {
+            return Triangles;
+        }
+
+        public readonly Vector3[] GetVertices()
+        {
+            return Vertices;
+        }
+        public readonly Mesh GetMesh()
+        {
+            return MeshStructsUtils.GetMesh(this);
+        }
+
+        public void SetTrianglesAndVertices(IEnumerable<Vector3> vertices, IEnumerable<int> triangles)
+        {
+            Vertices = vertices.ToArray();
+            Triangles = triangles.ToArray();
         }
     }
 }

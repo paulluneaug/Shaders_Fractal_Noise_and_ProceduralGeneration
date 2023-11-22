@@ -26,8 +26,25 @@ public class MarchingCubeController : MonoBehaviour
 
     private void Start()
     {
+    }
+
+    [ContextMenu("Generate Zone")]
+    private void GenerateZone()
+    {
         m_generator.GenerateZone(m_chunkZoneSizeToGenerate, m_chunkOffset, OnGenerationComplete);
     }
+
+    [ContextMenu("Clear")]
+    private void Clear()
+    {
+        foreach (var chunk in m_chunks.Values)
+        {
+            Destroy(chunk.gameObject);
+        }
+        m_chunks.Clear();
+    }
+
+
 
     private void OnGenerationComplete(Chunk[] generatedChunks)
     {

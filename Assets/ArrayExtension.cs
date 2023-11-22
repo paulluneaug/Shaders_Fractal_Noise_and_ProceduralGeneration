@@ -47,7 +47,7 @@ public static class ArrayExtension
     public unsafe static NativeArray<T> Resize<T>(this NativeArray<T> array, int size) where T : unmanaged
     {
         NativeArray<T> result = new NativeArray<T>(size, Allocator.Persistent);
-        
+
         if (size == 0 || array.Length == 0)
         {
             return result;
@@ -56,6 +56,11 @@ public static class ArrayExtension
         UnsafeUtility.MemCpy(result.GetUnsafePtr(), array.GetUnsafePtr(), Math.Min(array.Length, size) * sizeof(T));
 
         return result;
+    }
+
+    public unsafe static UnmanagedArray<T> ResizeToUnmanagedArray<T>(this NativeArray<T> array, int size) where T : unmanaged
+    {
+        return new UnmanagedArray<T>(size, new IntPtr(array.GetUnsafePtr()), array.Length * sizeof(T));
     }
 
     public unsafe static void Insert<T>(this T[] array, T[] other, int offset) where T : unmanaged

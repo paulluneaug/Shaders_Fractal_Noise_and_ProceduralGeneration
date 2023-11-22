@@ -50,6 +50,7 @@ uint3 _ChunkZoneSizeToGenerate;
 int3 _ChunkOffset;
 
 float _Threshold;
+int _SmoothMesh;
 
 // Noise Params
 uint _NoiseLayersCount;
@@ -135,6 +136,8 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
     float3 meshVertices[12] = _DefaultVertices;
     int meshTriangles[12] = _DefaultTriangles;
     
+    bool smoothMesh = _SmoothMesh == 1;
+    
     uint3 localCoordinates = CoordinatesToLocalCoordinates(id.xyz);
     uint cellID = LocalCoordinatesToChunkifiedLocalOffset(localCoordinates) * 12;
     
@@ -178,11 +181,10 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
         {
             int2 edgeVertexIndices = _EdgeVertexIndices[rawVertexIndex];
             float2 noiseValues = float2(_NoiseTexture[id.xyz + _VerticesCoordinates[edgeVertexIndices.x]], _NoiseTexture[id.xyz + _VerticesCoordinates[edgeVertexIndices.y]]);
-            float lerpFactor = abs((_Threshold - noiseValues.x) / (noiseValues.x - noiseValues.y));
+            float lerpFactor = smoothMesh ? abs((_Threshold - noiseValues.x) / (noiseValues.x - noiseValues.y)) : 0.5;
             
             float3 vertexPos = lerp(_VerticesCoordinates[edgeVertexIndices.x], _VerticesCoordinates[edgeVertexIndices.y], lerpFactor);
             meshVertices[rawVertexIndex] = vertexPos;
-            
         }
         
 #if REORGANIZE_INDICES

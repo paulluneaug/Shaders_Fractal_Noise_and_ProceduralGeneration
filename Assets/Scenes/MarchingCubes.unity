@@ -637,6 +637,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_marchingCubeCS: {fileID: 7200000, guid: 5542e0faeb854fd4391f4980e896af18, type: 3}
   m_threshold: 0.528
+  m_smoothMesh: 0
   m_noiseLayers:
   - Enabled: 1
     NoiseScale: 32
@@ -648,13 +649,13 @@ MonoBehaviour:
     UseSmootherStep: 1
     GradientOffset: 0
     LayerWeight: 0.6
-  - Enabled: 1
+  - Enabled: 0
     NoiseScale: 8
     UseSmootherStep: 1
     GradientOffset: 3
     LayerWeight: 0.3
   - Enabled: 0
-    NoiseScale: 4
+    NoiseScale: 1
     UseSmootherStep: 1
     GradientOffset: 3
     LayerWeight: 0.2
@@ -689,7 +690,7 @@ MonoBehaviour:
   m_generator: {fileID: 1370045300}
   m_refPoint: {fileID: 1306004212}
   m_chunkOffset: {x: 0, y: 0, z: 0}
-  m_chunkZoneSizeToGenerate: {x: 10, y: 10, z: 10}
+  m_chunkZoneSizeToGenerate: {x: 12, y: 12, z: 12}
   m_axisToDrawChunkBorders: 7
   m_chunksBorderColor: {r: 1, g: 0, b: 0, a: 1}
   m_axisToDrawCellBorders: 0
