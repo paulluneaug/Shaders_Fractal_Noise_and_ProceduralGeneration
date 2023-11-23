@@ -11,6 +11,8 @@ public static class Constants
 {
     public const int CHUNK_SIZE = 16;
     public const int CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+    public const int SUPER_CHUNK_CHUNK_SIZE = 4;
+    public const int SUPER_CHUNK_SIZE = SUPER_CHUNK_CHUNK_SIZE * CHUNK_SIZE;
 }
 
 public static class MeshStructs
