@@ -15,7 +15,6 @@ float Smootherstep(float w)
 
 float Interpolate(float a0, float a1, float w, bool smootherStep)
 {
-    //return (a1 - a0) * w + a0;
     float smoothW = 0;
     if (smootherStep)
     {
