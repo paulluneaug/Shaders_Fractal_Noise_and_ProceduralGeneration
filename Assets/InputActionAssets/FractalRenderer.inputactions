@@ -68,6 +68,39 @@
                     "isPartOfComposite": true
                 },
                 {
+                    "name": "1D Axis",
+                    "id": "a8c55eec-c220-4414-9751-9f5e055d098b",
+                    "path": "1DAxis",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Zoom",
+                    "isComposite": true,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "negative",
+                    "id": "fd46ce75-7dbf-4f77-86ee-0b544a901ec7",
+                    "path": "<Gamepad>/rightTrigger",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Zoom",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "positive",
+                    "id": "686726c7-5046-4646-8c71-d27feacb450e",
+                    "path": "<Gamepad>/leftTrigger",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Zoom",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
                     "name": "ZQSD",
                     "id": "99927888-b70d-4727-adce-aa05ae4c1db5",
                     "path": "2DVector",
@@ -123,6 +156,17 @@
                     "isPartOfComposite": true
                 },
                 {
+                    "name": "",
+                    "id": "b1684179-d1e6-44f4-b8fc-feb78aef6dbb",
+                    "path": "<Gamepad>/rightStick",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Move",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
                     "name": "Arrows",
                     "id": "7a23618e-7eec-4235-9d7b-4767c7341d98",
                     "path": "2DVector",
@@ -176,6 +220,17 @@
                     "action": "MoveConst",
                     "isComposite": false,
                     "isPartOfComposite": true
+                },
+                {
+                    "name": "",
+                    "id": "a14ce657-2be0-4020-b27d-71b76ef4b674",
+                    "path": "<Gamepad>/leftStick",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "MoveConst",
+                    "isComposite": false,
+                    "isPartOfComposite": false
                 }
             ]
         }

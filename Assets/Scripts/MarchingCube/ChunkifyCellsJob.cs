@@ -21,6 +21,6 @@ struct ChunkifyCellsJob : IJobFor
 
     public void Execute(int chunkIndex)
     {
-        GeneratedMeshes[chunkIndex] = MarchingCubeGenerator.ChunkifyCellsForChunk<UnmanagedChunkMesh>(m_cells, chunkIndex);
+        //GeneratedMeshes[chunkIndex] = MarchingCubeGenerator.ChunkifyCellsForChunk<UnmanagedChunkMesh>(m_cells, chunkIndex);
     }
 }

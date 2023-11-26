@@ -3,6 +3,9 @@
 
 
 // Consts
+
+static const uint CHUNK_SIZE = 16;
+
 static const float3 _EmptyVertice = float3(-1, -1, -1);
 
 static const float3 _DefaultVertices[12] =
@@ -362,7 +365,5 @@ static const int _TriangleTable[256][12] =
     { 8, 3, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
     { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
 };
-
-static const uint CHUNK_SIZE = 16;
 
 #endif

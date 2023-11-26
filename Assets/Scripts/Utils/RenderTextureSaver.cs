@@ -57,11 +57,6 @@ public static class RenderTextureSaver
 
             case TextureDimension.Tex2DArray:
                 break;
-                Texture2DArray output2DArray = new Texture2DArray(width, height, depth, tex.graphicsFormat, TextureCreationFlags.None);
-                Graphics.CopyTexture(tex, output2DArray);
-                output2DArray.Apply(updateMipmaps: false, makeNoLongerReadable: true);
-                output = output2DArray;
-                break;
 
         }
         m_rawTextureData.Dispose();

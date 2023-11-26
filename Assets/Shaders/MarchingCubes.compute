@@ -1,20 +1,11 @@
-#define REORGANIZE_INDICES false
-#define CHUNKIFY_WITH_CSHADER false
-
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel ComputeNoise
 #pragma kernel MarchingCubes
-
-#if CHUNKIFY_WITH_CSHADER
-#pragma kernel ChunkifyMeshes
-#endif
 
 #include "Utils.compute"
 #include "MarchingCubeConstants.compute"
 #include "NoiseGenerationUtils.compute"
 #include "ChunkUtils.compute"
-
-
 
 
 //structs
@@ -186,67 +177,9 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
             float3 vertexPos = lerp(_VerticesCoordinates[edgeVertexIndices.x], _VerticesCoordinates[edgeVertexIndices.y], lerpFactor);
             meshVertices[rawVertexIndex] = vertexPos;
         }
-        
-#if REORGANIZE_INDICES
-        if (isExtVertex)
-        {
-            meshTriangles[j] += cellID;
-        }
-        else
-        {
-            meshTriangles[j] += LocalCoordinatesToChunkifiedLocalOffset(localCoordinates + cubeCoordsOffset) * 12;
-        }
-#else
-#endif
     }
     
     mesh.Vertices = meshVertices;
     mesh.Triangles = meshTriangles;
     _GeneratedCells[index] = mesh;
 }
-
-#if CHUNKIFY_WITH_CSHADER
-[numthreads(8, 8, 8)]
-void ChunkifyMeshes(uint3 id : SV_DispatchThreadID)
-{    
-    uint chunkOffset = ChunkCoordinatesToChunkIndex(id.xyz, _ChunkZoneSizeToGenerate) * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
-    
-    float3 chunkVertices[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
-    int chunkTriangles[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
-    
-    int vertexMap[12 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
-    uint nextVertexIndex = 0;
-    uint nextTriangleIndex = 0;
-    
-    [fastopt]
-    for (uint i = 0; i < CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE; i++)
-    {
-        CubeMesh currentMesh = _GeneratedCells[chunkOffset + i];
-        for (uint j = 0; j < 12; j++)
-        {
-            int rawVertexIndex = currentMesh.Triangles[j];
-            if (rawVertexIndex == -1)
-            {
-                break;
-            }
-            
-            if (vertexMap[rawVertexIndex] == 0)
-            {
-                chunkVertices[nextVertexIndex] = currentMesh.Vertices[rawVertexIndex % 12];
-                
-                nextVertexIndex++;
-                vertexMap[rawVertexIndex] = nextVertexIndex;
-
-            }
-            chunkTriangles[nextTriangleIndex++] = vertexMap[rawVertexIndex] - 1;
-        }
-    }
-    chunkTriangles[nextTriangleIndex++] = -1;
-    
-    ChunkMesh chunk;
-    chunk.Triangles = chunkTriangles;
-    chunk.Vertices = chunkVertices;
-    
-    _GeneratedChunks[id.x + id.y * _ChunkZoneSizeToGenerate.x + id.z * _ChunkZoneSizeToGenerate.x * _ChunkZoneSizeToGenerate.y] = chunk;
-}
-#endif
