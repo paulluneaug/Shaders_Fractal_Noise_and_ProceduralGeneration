@@ -43,7 +43,6 @@ public class Chunkifier : MonoBehaviour
 
     [NonSerialized] private ChunkifierUtils m_utils;
 
-
     // Start is called before the first frame update
     void Start()
     {
