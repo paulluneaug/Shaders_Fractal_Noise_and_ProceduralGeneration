@@ -26,7 +26,7 @@ public class Chunkifier : MonoBehaviour
     [SerializeField] private int m_chunkSize = 4;
 
     [SerializeField] private Renderer m_cubePrefab;
-    [SerializeField] private Color[] m_colors;
+    [SerializeField] private List<Color> m_colors;
 
     [NonSerialized] private Color[,,] m_datas;
     [NonSerialized] private Vector3Int m_datasSize;
@@ -88,7 +88,7 @@ public class Chunkifier : MonoBehaviour
                             {
                                 (int x, int y, int z) coords = (x * m_chunkSize + ix, y * m_chunkSize + iy, z * m_chunkSize + iz);
                                 float colorFactor = Mathf.Lerp(1.0f, 0.4f, m_utils.LocalCoordinatesToChunkifiedLocalOffset(m_utils.CoordinatesToLocalCoordinates(coords)) / (float)m_utils.ChunkVolume);
-                                m_datas[coords.x, coords.y, coords.z] = m_colors[x + y * m_chunkSpan.x + z * m_chunkSpan.x * m_chunkSpan.y] * colorFactor;
+                                m_datas[coords.x, coords.y, coords.z] = GetColor(x + y * m_chunkSpan.x + z * m_chunkSpan.x * m_chunkSpan.y) * colorFactor;
                             }
                         }
                     }
@@ -166,8 +166,18 @@ public class Chunkifier : MonoBehaviour
     }
 
 
-    private void Chunkify()
+    private Color GetColor(int index)
     {
+        if (index < 0)
+        {
+            throw new ArgumentOutOfRangeException("index");
+        }
+
+        while (index >= m_colors.Count)
+        {
+            m_colors.Add(UnityEngine.Random.ColorHSV());
+        }
+        return m_colors[index];
     }
 
     private Transform CreateCube(int x, int y, int z, Color color, Transform parent, string name)
