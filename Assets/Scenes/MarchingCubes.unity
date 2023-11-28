@@ -153,11 +153,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_submarineTransform: {fileID: 640864082}
-  m_directionInput: {fileID: 1559543216483660520, guid: 1d58cac49f73d4144806322c4a8f2794,
+  m_forwardMaxSpeed: 2
+  m_forwardAcceleration: 1
+  m_forwardInertia: 0
+  m_verticalMaxSpeed: 10
+  m_verticalAcceleration: 1
+  m_verticalInertia: 0
+  m_directionInputAction: {fileID: 1559543216483660520, guid: 1d58cac49f73d4144806322c4a8f2794,
     type: 3}
-  m_throttleInput: {fileID: 6732901195111174431, guid: 1d58cac49f73d4144806322c4a8f2794,
+  m_throttleInputAction: {fileID: 6732901195111174431, guid: 1d58cac49f73d4144806322c4a8f2794,
     type: 3}
-  m_verticalInput: {fileID: 6547925048744540665, guid: 1d58cac49f73d4144806322c4a8f2794,
+  m_verticalInputAction: {fileID: 6547925048744540665, guid: 1d58cac49f73d4144806322c4a8f2794,
     type: 3}
 --- !u!4 &640864082
 Transform:
