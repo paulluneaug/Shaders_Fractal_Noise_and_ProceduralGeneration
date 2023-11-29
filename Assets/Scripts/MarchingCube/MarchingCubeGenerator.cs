@@ -1,19 +1,19 @@
 using System;
+using System.Collections;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 using Unity.Collections;
-using Unity.Jobs;
 
 using UnityEngine;
+using UnityEngine.Profiling;
 using UnityEngine.Rendering;
 
 using Cysharp.Threading.Tasks;
 
 using static Constants;
 using static MeshStructs;
-using System.Threading.Tasks;
-using System.Collections;
 
 public class MarchingCubeGenerator : MonoBehaviour
 {
@@ -65,7 +65,7 @@ public class MarchingCubeGenerator : MonoBehaviour
     private const string MARCHING_CUBE_KERNEL_NAME = "MarchingCubes";
 
     private const string NOISE_TEXTURE = "_NoiseTexture";
-    private const string GENERATED_MESHES = "_GeneratedCells";
+    private const string GENERATED_CELLS = "_GeneratedCells";
 
     private const string CHUNK_ZONE_TO_GENERATE_SIZE = "_ChunkZoneSizeToGenerate";
     private const string CHUNK_OFFSET = "_ChunkOffset";
@@ -106,7 +106,7 @@ public class MarchingCubeGenerator : MonoBehaviour
     [NonSerialized] private int m_marchingCubeKernelID = 0;
 
     [NonSerialized] private int m_noiseTexturePropertyID = 0;
-    [NonSerialized] private int m_generatedMeshesPropertyID = 0;
+    [NonSerialized] private int m_generatedCellsPropertyID = 0;
 
     [NonSerialized] private int m_chunkZoneSizeToGeneratePropertyID = 0;
     [NonSerialized] private int m_chunkOffsetPropertyID = 0;
@@ -126,10 +126,11 @@ public class MarchingCubeGenerator : MonoBehaviour
 
     [NonSerialized] private RenderTexture m_noiseTexture = null;
     [NonSerialized] private ComputeBuffer m_noiseLayersBuffer = null;
-    [NonSerialized] private ComputeBuffer m_generatedMeshesBuffer = null;
+    [NonSerialized] private ComputeBuffer m_generatedCellsBuffer = null;
 
     [NonSerialized] private Transform m_transform = null;
 
+    [NonSerialized] private NativeArray<CellMesh> m_generatedCells;
     [NonSerialized] private IChunkMesh[] m_generatedChunksMeshes = default;
     [NonSerialized] private Chunk[] m_generatedChunks = null;
 
@@ -141,7 +142,14 @@ public class MarchingCubeGenerator : MonoBehaviour
 
         m_recorder = new ScriptExecutionTimeRecorder();
 
+        m_generatedCells = new NativeArray<CellMesh>(CellsCount, Allocator.Persistent);
+
         m_transform = transform;
+    }
+
+    private void OnDestroy()
+    {
+        m_generatedCells.Dispose();
     }
 
     public void GenerateZone(Vector3Int zoneToGenerate, Vector3Int offset, Action<Chunk[]> callback)
@@ -160,7 +168,7 @@ public class MarchingCubeGenerator : MonoBehaviour
         m_marchingCubeKernelID = m_marchingCubeCS.FindKernel(MARCHING_CUBE_KERNEL_NAME);
 
         m_noiseTexturePropertyID = Shader.PropertyToID(NOISE_TEXTURE);
-        m_generatedMeshesPropertyID = Shader.PropertyToID(GENERATED_MESHES);
+        m_generatedCellsPropertyID = Shader.PropertyToID(GENERATED_CELLS);
 
         m_chunkZoneSizeToGeneratePropertyID = Shader.PropertyToID(CHUNK_ZONE_TO_GENERATE_SIZE);
         m_chunkOffsetPropertyID = Shader.PropertyToID(CHUNK_OFFSET);
@@ -184,51 +192,68 @@ public class MarchingCubeGenerator : MonoBehaviour
     {
         m_recorder.Reset();
 
+        // Shader properties assignation
+        Profiler.BeginSample("Shader properties assignation");
         SetMarchingCubeShaderProperties();
 
         m_recorder.AddEvent("Shader properties assignation");
+        Profiler.EndSample();
 
+        // Noise Shader Dispatch
+        Profiler.BeginSample("Noise Shader Dispatch");
         int groupX = Mathf.CeilToInt(CellsToGenerateSize.x + 1 / 8.0f);
         int groupY = Mathf.CeilToInt(CellsToGenerateSize.y + 1 / 8.0f);
         int groupZ = Mathf.CeilToInt(CellsToGenerateSize.z + 1 / 8.0f);
         m_marchingCubeCS.Dispatch(m_noiseKernelID, groupX, groupY, groupZ);
 
         m_recorder.AddEvent("Noise Shader Dispatch");
+        Profiler.EndSample();
 
+        // Marching cubes Shader Dispatch
+        Profiler.BeginSample("Marching cubes Shader Dispatch");
         groupX = Mathf.CeilToInt(CellsToGenerateSize.x / 8.0f);
         groupY = Mathf.CeilToInt(CellsToGenerateSize.y / 8.0f);
         groupZ = Mathf.CeilToInt(CellsToGenerateSize.z / 8.0f);
         m_marchingCubeCS.Dispatch(m_marchingCubeKernelID, groupX, groupY, groupZ);
 
         m_recorder.AddEvent("Marching cubes Shader Dispatch");
+        Profiler.EndSample();
 
-        //  generatedCells = new NativeArray<CellMesh>(CellsCount, Allocator.Persistent);
-        AsyncGPUReadbackRequest request = AsyncGPUReadback.Request(m_generatedMeshesBuffer);
+        // Mesh acquisition from shader
+        AsyncGPUReadbackRequest request = AsyncGPUReadback.Request(m_generatedCellsBuffer);
         yield return new WaitUntil(() => request.done);
-        NativeArray<CellMesh> generatedCells = request.GetData<CellMesh>();
+
+        Profiler.BeginSample("Mesh acquisition from shader");
+
+        Profiler.BeginSample("request.GetData<CellMesh>()");
+        NativeArray<CellMesh> tempGeneratedCells = request.GetData<CellMesh>();
+        Profiler.EndSample();
+
+        Profiler.BeginSample("Copy");
+        tempGeneratedCells.CopyTo(m_generatedCells);
+        Profiler.EndSample();
+
+        tempGeneratedCells.Dispose();
 
         m_recorder.AddEvent("Mesh acquisition from shader");
+        Profiler.EndSample();
 
-        ChunkifyMeshes(generatedCells);
+        // Chunkify Operation
 
-        generatedCells.Dispose();
+        yield return ChunkifyMeshes(m_generatedCells);
 
         m_recorder.AddEvent("Chunkify Operation");
 
+        // Meshes Generation
+        Profiler.BeginSample("Meshes Generation");
         m_generatedChunks = new Chunk[ChunksCount];
         for (int i = 0; i < ChunksCount; i++)
         {
-            try
-            {
-                CreateMesh(m_generatedChunksMeshes[i], i);
-            }
-            catch (Exception ex)
-            {
-            Debug.LogException(ex);
-            }
+            CreateMesh(m_generatedChunksMeshes[i], i);
         }
 
         m_recorder.AddEvent("Meshes Generation");
+        Profiler.EndSample();
 
         m_recorder.LogAllEventsTimeSpan();
     }
@@ -242,10 +267,10 @@ public class MarchingCubeGenerator : MonoBehaviour
         int layerCount = gpuNoiseLayers.Length;
         float weightMultiplier = 1.0f / gpuNoiseLayers.Select(layer => layer.LayerWeigth).Sum();
 
-        // Meshes Buffer
-        m_generatedMeshesBuffer?.Release();
-        m_generatedMeshesBuffer = new ComputeBuffer(CellsCount, Marshal.SizeOf(typeof(CellMesh)));
-        m_marchingCubeCS.SetBuffer(m_marchingCubeKernelID, m_generatedMeshesPropertyID, m_generatedMeshesBuffer);
+        // Cells Buffer
+        m_generatedCellsBuffer?.Release();
+        m_generatedCellsBuffer = new ComputeBuffer(CellsCount, Marshal.SizeOf(typeof(CellMesh)));
+        m_marchingCubeCS.SetBuffer(m_marchingCubeKernelID, m_generatedCellsPropertyID, m_generatedCellsBuffer);
 
         // Other variables
         m_marchingCubeCS.SetFloat(m_thresholdID, m_threshold);
@@ -275,24 +300,21 @@ public class MarchingCubeGenerator : MonoBehaviour
 
     #region Mesh Creation
 
-    private void ChunkifyMeshes(NativeArray<CellMesh> cells)
+    private IEnumerator ChunkifyMeshes(NativeArray<CellMesh> cells)
     {
 
 #if true
         m_generatedChunksMeshes = new IChunkMesh[ChunksCount];
+
         //for (int i = 0; i < ChunksCount; ++i)
         //{
         //    m_generatedChunksMeshes[i] = ChunkifyCellsForChunk<ChunkMesh>(cells, i);
+        //    yield return null;
         //}
-
-        Parallel.For(0, ChunksCount, i => { m_generatedChunksMeshes[i] = ChunkifyCellsForChunk<ChunkMesh>(cells, i); });
-
-        //IEnumerable<Task> chunkifyTasks = Enumerable.Range(0, ChunksCount)
-        //    .Select(i => ChunkifyCellsForChunk(cells, i));
-
-        //await Task.WhenAll(chunkifyTasks);
+        Task t = Task.Run(() => Parallel.For(0, ChunksCount, i => { m_generatedChunksMeshes[i] = ChunkifyCellsForChunk<ChunkMesh>(cells, i); }));
+        yield return t.AsUniTask().ToCoroutine();
 #else
-        ChunkifyCellsJob job = new ChunkifyCellsJob(cells, new NativeArray<ChunkMesh>(cells.Length / CHUNK_VOLUME, Allocator.Persistent));
+        ChunkifyCellsJob job = new ChunkifyCellsJob(cells, new NativeArray<ChunkMesh>(cells.Length / CHUNK_VOLUME, Allocator.TempJob));
         JobHandle jobHandle = job.Schedule(ChunksCount, default);
         jobHandle.Complete();
         m_generatedChunksMeshes = job.GeneratedMeshes;
@@ -341,6 +363,8 @@ public class MarchingCubeGenerator : MonoBehaviour
 
     public static TChunk ChunkifyCellsForChunk<TChunk>(NativeArray<CellMesh> cells, int chunkIndex) where TChunk : IChunkMesh, new()
     {
+        Profiler.BeginSample("ChunkifyCellsForChunk");
+        Profiler.BeginSample("Memory allocation");
         int chunkOffset = chunkIndex * CHUNK_VOLUME;
 
         Span<Vector3> chunkVertices = stackalloc Vector3[12 * CHUNK_VOLUME];
@@ -359,6 +383,8 @@ public class MarchingCubeGenerator : MonoBehaviour
         Span<int> currentTriangles = stackalloc int[CellMesh.TRIANGLES_COUNT];
         Span<Vector3> currentVertices = stackalloc Vector3[CellMesh.VERTICES_COUNT];
 
+        Profiler.EndSample();
+        Profiler.BeginSample("Vertex Map filling");
         for (int i = 0; i < CHUNK_VOLUME; ++i)
         {
             CellMesh currentMesh = cells[chunkOffset + i];
@@ -400,7 +426,9 @@ public class MarchingCubeGenerator : MonoBehaviour
             //currentTriangles.Dispose();
             //currentVertices.Dispose();
         }
+        Profiler.EndSample();
 
+        Profiler.BeginSample("Chunk building");
         for (int i = 0; i < CHUNK_VOLUME; ++i)
         {
             CellMesh currentMesh = cells[chunkOffset + i];
@@ -416,6 +444,7 @@ public class MarchingCubeGenerator : MonoBehaviour
                 chunkTriangles[nextTriangleIndex++] = vertexMap[rawVertexIndex] - 1;
             }
         }
+        Profiler.EndSample();
         vertexMap.Dispose();
 
         TChunk chunk = new TChunk();
@@ -429,7 +458,7 @@ public class MarchingCubeGenerator : MonoBehaviour
         //chunkTriangles.Dispose();
         //resizedVertices.Dispose();
         //resizedTriangles.Dispose();
-
+        Profiler.EndSample();
         return chunk;
     }
 }
