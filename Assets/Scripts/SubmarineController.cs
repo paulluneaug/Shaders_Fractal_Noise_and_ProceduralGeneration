@@ -21,21 +21,29 @@ public class SubmarineController : MonoBehaviour
     [SerializeField] private float m_verticalAcceleration = 1.0f;
     [SerializeField, Range(0.0f, 1.0f)] private float m_verticalInertia = 1.0f;
 
+    [Header("Direction Settings")]
+    [SerializeField, Range(0.0f, 180.0f)] private float m_xRotationLimit = 1.0f;
+    [SerializeField, Range(0.0f, 1.0f)] private float m_directionInertia = 1.0f;
+
+
     [Header("Inputs")]
     [SerializeField] private InputActionReference m_directionInputAction = null;
     [SerializeField] private InputActionReference m_throttleInputAction = null;
     [SerializeField] private InputActionReference m_verticalInputAction = null;
 
     // Cache
-    [NonSerialized] private Vector3 m_targetForward = Vector3.zero;
+    [NonSerialized] private Quaternion m_localTargetRotation = Quaternion.identity;
 
     [NonSerialized] private float m_currentForwardSpeed = 0.0f;
     [NonSerialized] private float m_currentVerticalSpeed = 0.0f;
+    [NonSerialized] private float m_targetForwardSpeed = 0.0f;
+    [NonSerialized] private float m_targetVerticalSpeed = 0.0f;
 
     // Start is called before the first frame update
     void Start()
     {
         m_directionInputAction.action.actionMap.Enable();
+        m_localTargetRotation = m_submarineTransform.localRotation;
     }
 
     // Update is called once per frame
@@ -45,11 +53,21 @@ public class SubmarineController : MonoBehaviour
         float throttleInput = m_throttleInputAction.action.ReadValue<float>();
         float verticalInput = m_verticalInputAction.action.ReadValue<float>();
 
-        m_currentForwardSpeed = Mathf.Lerp(0.0f, m_forwardMaxSpeed, Mathf.Abs(throttleInput) * ForwardInertiaFactor * Time.deltaTime) * Mathf.Sign(throttleInput);
-        m_currentForwardSpeed = Math.Clamp(m_currentForwardSpeed, -m_forwardMaxSpeed, m_forwardMaxSpeed);
+        m_targetForwardSpeed = Mathf.Lerp(0.0f, m_forwardMaxSpeed, Mathf.Abs(throttleInput)) * Mathf.Sign(throttleInput);
+        m_currentForwardSpeed = Mathf.MoveTowards(m_currentForwardSpeed, m_targetForwardSpeed, m_forwardAcceleration * Time.deltaTime * ForwardInertiaFactor);
+        m_currentForwardSpeed = Mathf.Clamp(m_currentForwardSpeed, -m_forwardMaxSpeed, m_forwardMaxSpeed);
 
-        m_currentVerticalSpeed = Mathf.Lerp(0.0f, m_verticalAcceleration, Mathf.Abs(verticalInput) * VerticalInertiaFactor * Time.deltaTime) * Mathf.Sign(verticalInput);
-        m_currentVerticalSpeed = Math.Clamp(m_currentVerticalSpeed, -m_verticalMaxSpeed, m_verticalMaxSpeed);
+        m_targetVerticalSpeed = Mathf.Lerp(0.0f, m_verticalMaxSpeed, Mathf.Abs(verticalInput)) * Mathf.Sign(verticalInput);
+        m_currentVerticalSpeed = Mathf.MoveTowards(m_currentVerticalSpeed, m_targetVerticalSpeed, m_verticalAcceleration * Time.deltaTime * VerticalInertiaFactor);
+        m_currentVerticalSpeed = Mathf.Clamp(m_currentVerticalSpeed, -m_verticalMaxSpeed, m_verticalMaxSpeed);
+
+        Quaternion currentLocalRotation = m_submarineTransform.localRotation;
+        Vector3 currentLocalEuler = currentLocalRotation.eulerAngles;
+        Vector2 currentXYRot = new Vector2(currentLocalEuler.x, currentLocalEuler.y);
+
+        Vector2 targetXYRot = currentXYRot + directionInput.normalized;
+
+        m_localTargetRotation *= Quaternion.AngleAxis(12, Vector3.one);
 
 
 
