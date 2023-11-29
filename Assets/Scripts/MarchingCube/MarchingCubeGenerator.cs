@@ -150,6 +150,8 @@ public class MarchingCubeGenerator : MonoBehaviour
     private void OnDestroy()
     {
         m_generatedCells.Dispose();
+        m_noiseLayersBuffer?.Release();
+        m_generatedCellsBuffer?.Release();
     }
 
     public void GenerateZone(Vector3Int zoneToGenerate, Vector3Int offset, Action<Chunk[]> callback)
@@ -337,6 +339,7 @@ public class MarchingCubeGenerator : MonoBehaviour
 
         MeshRenderer renderer = go.AddComponent<MeshRenderer>();
         renderer.material = m_material;
+        //renderer.shadowCastingMode = ShadowCastingMode.Off;
 
         MeshFilter filter = go.AddComponent<MeshFilter>();
 
