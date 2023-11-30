@@ -159,8 +159,10 @@ MonoBehaviour:
   m_verticalMaxSpeed: 0.05
   m_verticalAcceleration: 0.3
   m_verticalInertia: 0.75
+  m_directionMaxSpeed: 0.2
+  m_directionAcceleration: 0.8
   m_xRotationLimit: 1
-  m_directionInertia: 1
+  m_directionInertia: 0.45
   m_directionInputAction: {fileID: 1559543216483660520, guid: 1d58cac49f73d4144806322c4a8f2794,
     type: 3}
   m_throttleInputAction: {fileID: 6732901195111174431, guid: 1d58cac49f73d4144806322c4a8f2794,
