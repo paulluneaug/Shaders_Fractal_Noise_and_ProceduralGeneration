@@ -337,13 +337,18 @@ public class MarchingCubeGenerator : MonoBehaviour
         chunk.ChunkPosition = chunkCoordinates;
         m_generatedChunks[index] = chunk;
 
+        Mesh mesh = meshStruct.GetMesh();
+
         MeshRenderer renderer = go.AddComponent<MeshRenderer>();
         renderer.material = m_material;
         //renderer.shadowCastingMode = ShadowCastingMode.Off;
 
+        MeshCollider collider = go.AddComponent<MeshCollider>();
+        collider.sharedMesh = mesh;
+
         MeshFilter filter = go.AddComponent<MeshFilter>();
 
-        filter.mesh = meshStruct.GetMesh();
+        filter.mesh = mesh;
 
         go.isStatic = true;
     }
