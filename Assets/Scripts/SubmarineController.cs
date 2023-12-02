@@ -25,9 +25,15 @@ public class SubmarineController : MonoBehaviour
     [Header("Direction Settings")]
     [SerializeField] private float m_directionMaxSpeed = 1.0f;
     [SerializeField] private float m_directionAcceleration = 1.0f;
-    [SerializeField, Range(0.0f, 180.0f)] private float m_xRotationLimit = 1.0f;
+    [SerializeField, Range(0.0f, 90.0f)] private float m_xRotationLimit = 1.0f;
     [SerializeField, Range(0.0f, 1.0f)] private float m_directionInertia = 1.0f;
 
+    [Header("Camera Settings")]
+    [SerializeField] private Transform m_camera = null;
+    [SerializeField] private Transform m_cameraTargetPosition = null;
+    [SerializeField] private Transform m_cameraFarLookAtPosition = null;
+    [SerializeField] private Transform m_cameraCloseLookAtPosition = null;
+    [SerializeField] private LayerMask m_cameraGoThroughLayers = default;
 
     [Header("Inputs")]
     [SerializeField] private InputActionReference m_directionInputAction = null;
@@ -35,34 +41,46 @@ public class SubmarineController : MonoBehaviour
     [SerializeField] private InputActionReference m_verticalInputAction = null;
 
     // Cache
-    [NonSerialized] private Quaternion m_localTargetRotation = Quaternion.identity;
-
+    [NonSerialized] private Vector3 m_currentLocalEuler = Vector3.zero;
     [NonSerialized] private Vector2 m_currentDirectionSpeed = Vector2.zero;
     [NonSerialized] private float m_currentForwardSpeed = 0.0f;
     [NonSerialized] private float m_currentVerticalSpeed = 0.0f;
 
-    // Start is called before the first frame update
+    [NonSerialized] private float m_maxCameraDistance = 0.0f;
+
     void Start()
     {
         m_directionInputAction.action.actionMap.Enable();
-        m_localTargetRotation = m_submarineTransform.localRotation;
+        m_maxCameraDistance = (m_cameraTargetPosition.position - m_submarineTransform.position).magnitude;
+        m_currentLocalEuler = m_submarineTransform.localEulerAngles;
     }
 
-    // Update is called once per frame
     void Update()
+    {
+        m_currentLocalEuler += new Vector3(m_currentDirectionSpeed.y, m_currentDirectionSpeed.x, 0) * Time.deltaTime;
+        m_currentLocalEuler.x = Mathf.Clamp(m_currentLocalEuler.x, -m_xRotationLimit, m_xRotationLimit);
+        m_submarineTransform.localEulerAngles = m_currentLocalEuler;
+
+        m_submarineTransform.position +=
+            m_submarineTransform.forward * m_currentForwardSpeed * Time.deltaTime +
+            Vector3.up * m_currentVerticalSpeed * Time.deltaTime;
+
+        UpdateCameraPosition();
+    }
+
+    private void FixedUpdate()
     {
         Vector2 directionInput = m_directionInputAction.action.ReadValue<Vector2>();
         float throttleInput = m_throttleInputAction.action.ReadValue<float>();
         float verticalInput = m_verticalInputAction.action.ReadValue<float>();
 
         float targetForwardSpeed = GetTargetSpeed(m_forwardMaxSpeed, throttleInput);
-        m_currentForwardSpeed = Mathf.MoveTowards(m_currentForwardSpeed, targetForwardSpeed, m_forwardAcceleration * Time.deltaTime * ForwardInertiaFactor);
+        m_currentForwardSpeed = Mathf.MoveTowards(m_currentForwardSpeed, targetForwardSpeed, m_forwardAcceleration * Time.fixedDeltaTime * ForwardInertiaFactor);
         m_currentForwardSpeed = Mathf.Clamp(m_currentForwardSpeed, -m_forwardMaxSpeed, m_forwardMaxSpeed);
 
         float targetVerticalSpeed = GetTargetSpeed(m_verticalMaxSpeed, verticalInput);
-        m_currentVerticalSpeed = Mathf.MoveTowards(m_currentVerticalSpeed, targetVerticalSpeed, m_verticalAcceleration * Time.deltaTime * VerticalInertiaFactor);
+        m_currentVerticalSpeed = Mathf.MoveTowards(m_currentVerticalSpeed, targetVerticalSpeed, m_verticalAcceleration * Time.fixedDeltaTime * VerticalInertiaFactor);
         m_currentVerticalSpeed = Mathf.Clamp(m_currentVerticalSpeed, -m_verticalMaxSpeed, m_verticalMaxSpeed);
-
 
         Vector2 targetDirectionSpeed = new Vector2(
             GetTargetSpeed(m_directionMaxSpeed, directionInput.x),
@@ -71,10 +89,28 @@ public class SubmarineController : MonoBehaviour
         m_currentDirectionSpeed = Vector2.MoveTowards(m_currentDirectionSpeed, targetDirectionSpeed, m_directionAcceleration * Time.deltaTime * DirectionInertiaFactor);
         m_currentDirectionSpeed.x = Mathf.Clamp(m_currentDirectionSpeed.x, -m_directionMaxSpeed, m_directionMaxSpeed);
         m_currentDirectionSpeed.y = Mathf.Clamp(m_currentDirectionSpeed.y, -m_directionMaxSpeed, m_directionMaxSpeed);
+    }
 
-        m_submarineTransform.localEulerAngles += new Vector3(m_currentDirectionSpeed.y, m_currentDirectionSpeed.x, 0);
+    private void UpdateCameraPosition()
+    {
+        Vector3 camPosition;
 
-        m_submarineTransform.position += m_submarineTransform.forward * m_currentForwardSpeed + Vector3.up * m_currentVerticalSpeed;
+        Vector3 direction = m_cameraTargetPosition.position - m_submarineTransform.position;
+        if (Physics.Raycast(m_submarineTransform.position, direction, out RaycastHit hit, m_maxCameraDistance, ~m_cameraGoThroughLayers))
+        {
+            camPosition = hit.point;
+        }
+        else
+        {
+            camPosition = m_cameraTargetPosition.position;
+        }
+        m_camera.position = camPosition;
+
+        float factor = (camPosition - m_submarineTransform.position).sqrMagnitude / (m_maxCameraDistance * m_maxCameraDistance);
+
+        Vector3 lookAtPosition = Vector3.Lerp(m_cameraCloseLookAtPosition.position, m_cameraFarLookAtPosition.position, factor);
+
+        m_camera.LookAt(lookAtPosition);
     }
 
     private static float GetTargetSpeed(float maxSpeed, float input)
