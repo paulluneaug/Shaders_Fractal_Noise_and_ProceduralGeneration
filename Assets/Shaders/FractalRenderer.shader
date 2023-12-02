@@ -48,6 +48,7 @@ Shader "Unlit/FractalRenderer"
 
             StructuredBuffer<GradientKey> _Gradient;
             int _GradientSize;
+            int _BlendGradient;
             
 
             float2 SquareComplex(float2 a)
@@ -95,6 +96,12 @@ Shader "Unlit/FractalRenderer"
 
                 GradientKey lowerKey = _Gradient[keyIndex];
                 GradientKey upperKey = _Gradient[keyIndex + 1];
+    
+                if (_BlendGradient == 0)
+                {
+                    return upperKey.Color;
+                }
+    
                 if (time == lowerKey.Time)
                 {
                     return (0,0,0,1);

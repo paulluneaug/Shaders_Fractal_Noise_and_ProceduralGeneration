@@ -96,10 +96,11 @@ public class MarchingCubeGenerator : MonoBehaviour
 
     [SerializeField] private NoiseLayer3D[] m_noiseLayers = null;
 
-    [SerializeField] private Material m_material = null;
+    [SerializeField] private Material m_terrainMaterial = null;
+    [SerializeField] GradientShaderProperty m_terrainGradient = null;
     #endregion
 
-    // Cache
+    #region Cache
     #region Shader Properties IDs
     // MarchingCube CS
     [NonSerialized] private int m_noiseKernelID = 0;
@@ -135,10 +136,13 @@ public class MarchingCubeGenerator : MonoBehaviour
     [NonSerialized] private Chunk[] m_generatedChunks = null;
 
     [NonSerialized] private Action<Chunk[]> m_generationCallback;
+    #endregion
 
     private void Awake()
     {
         GetPropertiesIDs();
+
+        m_terrainGradient.ApplyShaderProperties(m_terrainMaterial);
 
         m_recorder = new ScriptExecutionTimeRecorder();
 
@@ -149,6 +153,7 @@ public class MarchingCubeGenerator : MonoBehaviour
 
     private void OnDestroy()
     {
+        m_terrainGradient.Dispose();
         m_generatedCells.Dispose();
         m_noiseLayersBuffer?.Release();
         m_generatedCellsBuffer?.Release();
@@ -340,7 +345,7 @@ public class MarchingCubeGenerator : MonoBehaviour
         Mesh mesh = meshStruct.GetMesh();
 
         MeshRenderer renderer = go.AddComponent<MeshRenderer>();
-        renderer.material = m_material;
+        renderer.material = m_terrainMaterial;
         //renderer.shadowCastingMode = ShadowCastingMode.Off;
 
         MeshCollider collider = go.AddComponent<MeshCollider>();
