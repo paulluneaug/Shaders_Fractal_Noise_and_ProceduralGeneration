@@ -537,7 +537,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_marchingCubeCS: {fileID: 7200000, guid: 5542e0faeb854fd4391f4980e896af18, type: 3}
   m_threshold: 0.5
-  m_smoothMesh: 0
+  m_smoothMesh: 1
   m_noiseLayers:
   - Enabled: 1
     NoiseScale: 32
