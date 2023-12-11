@@ -76,6 +76,8 @@ public class MarchingCubeGenerator : MonoBehaviour
     private const string NOISE_LAYERS_COUNT = "_NoiseLayersCount";
     private const string NOISE_LAYERS = "_NoiseLayers";
     private const string NOISE_WEIGHTS_MULTIPLIER = "_NoiseWeigthsMultiplier";
+
+    private const string RADIUS_ARROUND_ORIGIN = "_RadiusArroundOrigin";
     #endregion
 
     #region Properties
@@ -95,6 +97,8 @@ public class MarchingCubeGenerator : MonoBehaviour
     [SerializeField] private bool m_smoothMesh = true;
 
     [SerializeField] private NoiseLayer3D[] m_noiseLayers = null;
+
+    [SerializeField] private float m_radiusArroundOrigin = 10.0f;
 
     [SerializeField] private Material m_terrainMaterial = null;
     [SerializeField] GradientShaderProperty m_terrainGradient = null;
@@ -118,6 +122,8 @@ public class MarchingCubeGenerator : MonoBehaviour
     [NonSerialized] private int m_noiseLayerCountPropertyID = 0;
     [NonSerialized] private int m_noiseLayersPropertyID = 0;
     [NonSerialized] private int m_noiseWeightsMultiplierPropertyID = 0;
+
+    [NonSerialized] private int m_radiusArroundOriginPropertyID = 0;
     #endregion
 
     [NonSerialized] private Vector3Int m_chunkOffset = Vector3Int.zero;
@@ -186,6 +192,8 @@ public class MarchingCubeGenerator : MonoBehaviour
         m_noiseLayersPropertyID = Shader.PropertyToID(NOISE_LAYERS);
         m_noiseLayerCountPropertyID = Shader.PropertyToID(NOISE_LAYERS_COUNT);
         m_noiseWeightsMultiplierPropertyID = Shader.PropertyToID(NOISE_WEIGHTS_MULTIPLIER);
+
+        m_radiusArroundOriginPropertyID = Shader.PropertyToID(RADIUS_ARROUND_ORIGIN);
     }
 
     private IEnumerator GenerateChunksAsync()
@@ -303,6 +311,8 @@ public class MarchingCubeGenerator : MonoBehaviour
         m_marchingCubeCS.SetBuffer(m_noiseKernelID, m_noiseLayersPropertyID, m_noiseLayersBuffer);
 
         m_marchingCubeCS.SetFloat(m_noiseWeightsMultiplierPropertyID, weightMultiplier);
+
+        m_marchingCubeCS.SetFloat(m_radiusArroundOriginPropertyID, m_radiusArroundOrigin);
     }
 
     #region Mesh Creation
@@ -348,8 +358,12 @@ public class MarchingCubeGenerator : MonoBehaviour
         renderer.material = m_terrainMaterial;
         //renderer.shadowCastingMode = ShadowCastingMode.Off;
 
-        MeshCollider collider = go.AddComponent<MeshCollider>();
-        collider.sharedMesh = mesh;
+        if (mesh.bounds.size != Vector3.zero)
+        {
+            MeshCollider collider = go.AddComponent<MeshCollider>();
+            collider.sharedMesh = mesh;
+        }
+
 
         MeshFilter filter = go.AddComponent<MeshFilter>();
 

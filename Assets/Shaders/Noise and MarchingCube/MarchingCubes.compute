@@ -49,6 +49,9 @@ StructuredBuffer<NoiseLayer3D> _NoiseLayers;
 
 float _NoiseWeigthsMultiplier;
 
+float _RadiusArroundOrigin;
+
+
 
 float ComputeNoiseForCoordinates(int ix, int iy, int iz)
 {
@@ -109,12 +112,27 @@ float ComputeNoiseForCoordinates(int ix, int iy, int iz)
     return value;
 }
 
+float ComputeNoiseForCoordinates(int3 xyz)
+{
+    return ComputeNoiseForCoordinates(xyz.x, xyz.y, xyz.z);
+}
+
 [numthreads(8, 8, 8)]
 void ComputeNoise(uint3 id : SV_DispatchThreadID)
 {
     int3 offset = _ChunkOffset * CHUNK_SIZE;
-    float value = ComputeNoiseForCoordinates(id.x + offset.x, id.y + offset.y, id.z + offset.z);
-    _NoiseTexture[id.xyz] = value;
+    int3 coordinates = id + offset;
+    
+    float sqrDistToOrigin = SqrMagnitude(coordinates);
+    if (_RadiusArroundOrigin > 0 && sqrDistToOrigin <= _RadiusArroundOrigin * _RadiusArroundOrigin)
+    {
+        _NoiseTexture[id.xyz] = lerp(1, ComputeNoiseForCoordinates(coordinates),
+        sqrDistToOrigin / (_RadiusArroundOrigin * _RadiusArroundOrigin));
+    }
+    else
+    {
+        _NoiseTexture[id.xyz] = ComputeNoiseForCoordinates(coordinates);
+    }
 }
 
 
