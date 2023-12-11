@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
-
+using UnityEngine.Profiling;
 
 public static class Constants
 {
@@ -175,11 +175,15 @@ public static class MeshStructs
 
         public static Mesh GetMesh(IMesh meshStruct) 
         {
-            return new Mesh
+            Mesh mesh = new Mesh
             {
                 vertices = meshStruct.GetVertices(),
                 triangles = meshStruct.GetTriangles()
             };
+            Profiler.BeginSample("RecalculateNormals");
+            mesh.RecalculateNormals();
+            Profiler.EndSample();
+            return mesh;
         }
     }
 

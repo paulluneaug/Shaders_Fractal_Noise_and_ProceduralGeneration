@@ -9,16 +9,18 @@ public class ScriptExecutionTimeRecorder
     {
         private readonly string m_eventName;
         private readonly double m_eventDuration;
+        private readonly int m_frame;
 
         public ScriptEvent(string eventName, double eventDuration)
         {
             m_eventName = eventName;
             m_eventDuration = eventDuration;
+            m_frame = Time.frameCount;
         }
 
         public override readonly string ToString()
         {
-            return $"[Recorder] Event \"{m_eventName}\" took {m_eventDuration} ms";
+            return $"[Recorder] Event \"{m_eventName}\" took {m_eventDuration} ms | Frame {m_frame}";
         }
     }
 

@@ -12,18 +12,16 @@ public class FractalController : MonoBehaviour
     private const string MAX_ITERATIONS_PROPERTY = "_MaxIterations";
     private const string THRESHOLD_PROPERTY = "_Treshold";
     private const string POS_AND_SIZE_PROPERTY = "_PosAndSize";
-    private const string GRADIENT_PROPERTY = "_Gradient";
-    private const string GRADIENT_SIZE_PROPERTY = "_GradientSize";
 
     [SerializeField] private Renderer m_renderer;
     [SerializeField] private Rect m_startViewport = new Rect();
-
-    [SerializeField] private Gradient m_colorGradient = new Gradient();
 
     [SerializeField] private float m_moveSpeed = 1.0f;
     [SerializeField] private float m_moveConstSpeed = 1.0f;
     [SerializeField] private float m_zoomSpeed = 1.0f;
     [SerializeField] private float m_lerpFactor = 1.0f;
+
+    [SerializeField] GradientShaderProperty m_gradient = null;
 
     [SerializeField] private InputActionReference m_moveInput = null;
     [SerializeField] private InputActionReference m_moveConstInput = null;
@@ -36,8 +34,6 @@ public class FractalController : MonoBehaviour
     [NonSerialized] private int m_maxIterationsProprtyID = 0;
     [NonSerialized] private int m_thresholdProprtyID = 0;
     [NonSerialized] private int m_posAndSizeProprtyID = 0;
-    [NonSerialized] private int m_gradientPropertyID = 0;
-    [NonSerialized] private int m_gradientSizePropertyID = 0;
 
     [NonSerialized] private Vector4 m_currentViewport = Vector4.zero;
     [NonSerialized] private Vector4 m_targetViewport = Vector4.zero;
@@ -45,8 +41,6 @@ public class FractalController : MonoBehaviour
 
     [SerializeField] private Vector2 m_currentConst = Vector2.zero;
     [NonSerialized] private Vector2 m_targetConst = Vector2.zero;
-
-    [NonSerialized] private ComputeBuffer m_gradientBuffer;
 
     // Start is called before the first frame update
     void Start()
@@ -67,24 +61,8 @@ public class FractalController : MonoBehaviour
         m_maxIterationsProprtyID = Shader.PropertyToID(MAX_ITERATIONS_PROPERTY);
         m_thresholdProprtyID = Shader.PropertyToID(THRESHOLD_PROPERTY);
         m_posAndSizeProprtyID = Shader.PropertyToID(POS_AND_SIZE_PROPERTY);
-        m_gradientPropertyID = Shader.PropertyToID(GRADIENT_PROPERTY);
-        m_gradientSizePropertyID = Shader.PropertyToID(GRADIENT_SIZE_PROPERTY);
 
-        m_gradientBuffer = new ComputeBuffer(m_colorGradient.colorKeys.Length, 5 * sizeof(float));
-        float[] managedBuffer = new float[5 * m_colorGradient.colorKeys.Length];
-
-        int i = 0;
-        foreach(GradientColorKey key in m_colorGradient.colorKeys)
-        {
-            managedBuffer[i++] = key.time;
-            managedBuffer[i++] = key.color.r;
-            managedBuffer[i++] = key.color.g;
-            managedBuffer[i++] = key.color.b;
-            managedBuffer[i++] = key.color.a;
-        }
-        m_gradientBuffer.SetData(managedBuffer);
-        m_materialPropBlock.SetBuffer(m_gradientPropertyID, m_gradientBuffer);
-        m_materialPropBlock.SetInt(m_gradientSizePropertyID, m_colorGradient.colorKeys.Length);
+        m_gradient.ApplyShaderProperties(m_materialPropBlock);
 
         m_currentViewport = ToVector(m_startViewport);
         m_targetViewport = m_currentViewport;
@@ -132,7 +110,7 @@ public class FractalController : MonoBehaviour
 
     private void OnDestroy()
     {
-        m_gradientBuffer.Release();
+        m_gradient.Dispose();
     }
 
     private Vector4 ToVector(Rect rect)

@@ -41,7 +41,7 @@ public class MeshManipulator : MonoBehaviour
     private void Update()
     {
 
-        MakeCubeIntoShere(Mathf.Abs(Time.realtimeSinceStartup % 2 - 1));
+        MakeCubeIntoShere(Mathf.Abs(Time.time % 2 - 1));
         if (m_previousLerpT != m_lerpT)
         {
             m_previousLerpT = m_lerpT;
