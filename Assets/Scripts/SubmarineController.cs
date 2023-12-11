@@ -4,8 +4,16 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+public enum Axis
+{
+    X = 0,
+    Y = 1,
+    Z = 2,
+}
+
 public class SubmarineController : MonoBehaviour
 {
+
     private float DirectionInertiaFactor => 1.0f - m_directionInertia;
     private float ForwardInertiaFactor => 1.0f - m_forwardInertia;
     private float VerticalInertiaFactor => 1.0f - m_verticalInertia;
@@ -40,6 +48,12 @@ public class SubmarineController : MonoBehaviour
     [SerializeField] private InputActionReference m_throttleInputAction = null;
     [SerializeField] private InputActionReference m_verticalInputAction = null;
 
+    [Header("Model")]
+    [SerializeField] private Transform m_propeller = null;
+    [SerializeField] private Axis m_propellerRotationAxis = Axis.Z;
+    [SerializeField] private float m_propellerMaxSpeed = 10.0f;
+
+
     // Cache
     [NonSerialized] private Vector3 m_currentLocalEuler = Vector3.zero;
     [NonSerialized] private Vector2 m_currentDirectionSpeed = Vector2.zero;
@@ -66,6 +80,7 @@ public class SubmarineController : MonoBehaviour
             Vector3.up * m_currentVerticalSpeed * Time.deltaTime;
 
         UpdateCameraPosition();
+        UpdatePropeller();
     }
 
     private void FixedUpdate()
@@ -113,8 +128,27 @@ public class SubmarineController : MonoBehaviour
         m_camera.LookAt(lookAtPosition);
     }
 
+    private void UpdatePropeller()
+    {
+        m_propeller.Rotate(m_propellerRotationAxis.GetVector(), m_propellerMaxSpeed * m_currentForwardSpeed * Time.deltaTime);
+    }
+
     private static float GetTargetSpeed(float maxSpeed, float input)
     {
         return Mathf.Lerp(0.0f, maxSpeed, Mathf.Abs(input)) * Mathf.Sign(input);
+    }
+}
+
+public static class AxisExtension
+{
+    public static Vector3 GetVector(this Axis axis)
+    {
+        return axis switch
+        {
+            Axis.X => Vector3.right,
+            Axis.Y => Vector3.up,
+            Axis.Z => Vector3.forward,
+            _ => throw new NotImplementedException(),
+        };
     }
 }
