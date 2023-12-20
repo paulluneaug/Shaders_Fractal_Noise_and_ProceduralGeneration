@@ -21,7 +21,7 @@ public class GradientShaderProperty : IDisposable
         InitializeBuffer();
         materialPropertyBlock.SetBuffer(m_gradientPropertyID, m_gradientBuffer);
         materialPropertyBlock.SetInt(m_gradientSizePropertyID, m_colorGradient.colorKeys.Length);
-        materialPropertyBlock.SetInt(m_blendGradientPropertyID, m_colorGradient.mode == GradientMode.Blend ? 1 : 0);
+        materialPropertyBlock.SetInt(m_blendGradientPropertyID, m_colorGradient.mode == GradientMode.Fixed ? 0 : 1);
     }
 
     public void ApplyShaderProperties(Material material)
