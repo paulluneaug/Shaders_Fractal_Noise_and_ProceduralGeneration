@@ -1,5 +1,12 @@
 {
   "dependencies": {
+    "com.pluneau.unityutility": {
+      "version": "https://github.com/paulluneaug/UnityUtility.git?path=/UnityUtility/Assets/Public#v1.4.0",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "d9dddb9c0685d5abd19058482f15d4f6915240a5"
+    },
     "com.unity.ai.navigation": {
       "version": "1.1.5",
       "depth": 0,
