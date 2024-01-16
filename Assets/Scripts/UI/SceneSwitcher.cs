@@ -11,20 +11,25 @@ public class SceneSwitcher : MonoBehaviour
 
     [NonSerialized] private Scene m_scene;
 
-    private void OnEnable()
+    protected virtual void Awake()
     {
-        m_scene = SceneManager.GetSceneByName(m_sceneToSwitchTo);
-        if (!m_scene.IsValid())
-        {
-            Debug.LogError($"Could not find the scene {m_sceneToSwitchTo}");
-        }
+    }
+
+    public void SetSceneToLoad(string sceneName)
+    {
+        m_sceneToSwitchTo = sceneName;
     }
 
     public void SwitchToScene()
     {
-        if (m_scene.IsValid())
+        LoadingScreen.Instance.FadeIn(m_fadeTime, OnFadeInOver);
+    }
+
+    private void CheckScene()
+    {
+        if (!m_scene.IsValid())
         {
-            LoadingScreen.Instance.FadeIn(m_fadeTime, OnFadeInOver);
+            Debug.LogError($"Could not find the scene {m_sceneToSwitchTo}");
         }
     }
 
@@ -36,8 +41,7 @@ public class SceneSwitcher : MonoBehaviour
 
     private void OnFadeInOver()
     {
-        AsyncOperation unloadOp = SceneManager.UnloadSceneAsync(SceneManager.GetActiveScene());
-        SceneManager.LoadScene(m_scene.buildIndex);
-        unloadOp.completed += OnSwitchOver;
+        AsyncOperation loadOp = SceneManager.LoadSceneAsync(m_sceneToSwitchTo, LoadSceneMode.Single);
+        loadOp.completed += OnSwitchOver;
     }
 }

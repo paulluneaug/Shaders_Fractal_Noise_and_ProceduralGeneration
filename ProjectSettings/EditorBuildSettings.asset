@@ -6,6 +6,14 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/EntryScene.unity
+    guid: 5564e13911f491742ba6228fff3c4a6c
+  - enabled: 1
     path: Assets/Scenes/FractalScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
-  m_configObjects: {}
+  - enabled: 1
+    path: Assets/Scenes/MarchingCubes.unity
+    guid: f2f75630cda9d664699380e0dfdfc00c
+  m_configObjects:
+    com.unity.input.settings: {fileID: 11400000, guid: b9d3a7deed8466140904cdaafb0c135f,
+      type: 2}

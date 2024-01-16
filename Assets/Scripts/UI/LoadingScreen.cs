@@ -8,6 +8,8 @@ using UnityUtility.Singletons;
 
 public class LoadingScreen : SingletonMonoBehaviour<LoadingScreen>
 {
+    public Action<bool> OnFadeOver;
+
     [SerializeField] private Image m_background;
     [SerializeField] private TMP_Text m_message;
 
@@ -15,9 +17,9 @@ public class LoadingScreen : SingletonMonoBehaviour<LoadingScreen>
 
     private void Awake()
     {
-        DontDestroyOnLoad(this);
         gameObject.SetActive(false);
         m_fading = false;
+        s_instance = this;
     }
 
     public void SetMessage(string message)
@@ -69,7 +71,8 @@ public class LoadingScreen : SingletonMonoBehaviour<LoadingScreen>
             fadeTimer += Time.deltaTime;
         }
 
-        onFadeOver(); 
+        onFadeOver();
+        OnFadeOver?.Invoke(targetColor.a == 1.0f);
         m_fading = false;
     }
 }
