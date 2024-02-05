@@ -21,11 +21,17 @@ public class FractalController : MonoBehaviour
     [SerializeField] private float m_zoomSpeed = 1.0f;
     [SerializeField] private float m_lerpFactor = 1.0f;
 
+    [SerializeField] private int m_startIterations = 100;
+    [SerializeField] private int m_iterationsSteps = 10;
+
     [SerializeField] GradientShaderProperty m_gradient = null;
 
     [SerializeField] private InputActionReference m_moveInput = null;
     [SerializeField] private InputActionReference m_moveConstInput = null;
     [SerializeField] private InputActionReference m_zoomInput = null;
+
+    [SerializeField] private InputActionReference m_increaseIterationsInput = null;
+    [SerializeField] private InputActionReference m_decreaseIterationsInput = null;
 
     [NonSerialized] private MaterialPropertyBlock m_materialPropBlock = null;
 
@@ -39,8 +45,10 @@ public class FractalController : MonoBehaviour
     [NonSerialized] private Vector4 m_targetViewport = Vector4.zero;
     [NonSerialized] private float m_zoom = 1.0f;
 
-    [SerializeField] private Vector2 m_currentConst = Vector2.zero;
+    [NonSerialized] private Vector2 m_currentConst = Vector2.zero;
     [NonSerialized] private Vector2 m_targetConst = Vector2.zero;
+
+    [NonSerialized] private int m_currentIterations = 0;
 
     // Start is called before the first frame update
     void Start()
@@ -68,8 +76,27 @@ public class FractalController : MonoBehaviour
         m_targetViewport = m_currentViewport;
         m_materialPropBlock.SetVector(m_posAndSizeProprtyID, m_currentViewport);
 
+        m_currentIterations = m_startIterations;
+
         m_renderer.SetPropertyBlock(m_materialPropBlock);
 
+        m_increaseIterationsInput.action.performed += OnIncreaseInteractionPerformed;
+        m_decreaseIterationsInput.action.performed += OnDecreaseInteractionPerformed;
+    }
+
+    private void OnDecreaseInteractionPerformed(InputAction.CallbackContext context)
+    {
+        ChangeMaxIterations(-m_iterationsSteps);
+    }
+
+    private void OnIncreaseInteractionPerformed(InputAction.CallbackContext context)
+    {
+        ChangeMaxIterations(m_iterationsSteps);
+    }
+
+    private void ChangeMaxIterations(int value)
+    {
+        m_currentIterations = Mathf.Max(m_currentIterations + value, m_iterationsSteps);
     }
 
     // Update is called once per frame
@@ -105,12 +132,17 @@ public class FractalController : MonoBehaviour
         m_materialPropBlock.SetFloat(m_cxProprtyID, m_currentConst.x);
         m_materialPropBlock.SetFloat(m_cyProprtyID, m_currentConst.y);
 
+        m_materialPropBlock.SetInt(m_maxIterationsProprtyID, m_currentIterations);
+
         m_renderer.SetPropertyBlock(m_materialPropBlock);
     }
 
     private void OnDestroy()
     {
         m_gradient.Dispose();
+
+        m_increaseIterationsInput.action.performed -= OnIncreaseInteractionPerformed;
+        m_decreaseIterationsInput.action.performed -= OnDecreaseInteractionPerformed;
     }
 
     private Vector4 ToVector(Rect rect)
