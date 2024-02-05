@@ -41,7 +41,7 @@ Shader "Unlit/FractalRenderer"
 
             float _Cx;
             float _Cy;
-            uint _MaxIterations;
+            int _MaxIterations;
             float _Treshold;
 
             float4 _PosAndSize;
@@ -83,7 +83,7 @@ Shader "Unlit/FractalRenderer"
                     return _Gradient[0].Color;
                 }
 
-                uint keyIndex = 0;
+                int keyIndex = 0;
                 while(!(_Gradient[keyIndex].Time <= time && time <= _Gradient[keyIndex + 1].Time) && keyIndex < _GradientSize - 1)
                 {
                     keyIndex++;
@@ -104,7 +104,7 @@ Shader "Unlit/FractalRenderer"
     
                 if (time == lowerKey.Time)
                 {
-                    return (0,0,0,1);
+                    return float4(0,0,0,1);
                 }
 
                 float newTime = float(time - lowerKey.Time) / float(upperKey.Time - lowerKey.Time);

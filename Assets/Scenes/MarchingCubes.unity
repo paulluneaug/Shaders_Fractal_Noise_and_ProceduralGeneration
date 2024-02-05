@@ -361,11 +361,11 @@ MonoBehaviour:
   m_cameraGoThroughLayers:
     serializedVersion: 2
     m_Bits: 0
-  m_directionInputAction: {fileID: 1559543216483660520, guid: 1d58cac49f73d4144806322c4a8f2794,
+  m_directionInputAction: {fileID: 4794719434211814979, guid: fe34a05fafe12d84d8667fb0821c6759,
     type: 3}
-  m_throttleInputAction: {fileID: 6732901195111174431, guid: 1d58cac49f73d4144806322c4a8f2794,
+  m_throttleInputAction: {fileID: -8368644778371349976, guid: fe34a05fafe12d84d8667fb0821c6759,
     type: 3}
-  m_verticalInputAction: {fileID: 6547925048744540665, guid: 1d58cac49f73d4144806322c4a8f2794,
+  m_verticalInputAction: {fileID: -9030523299113547820, guid: fe34a05fafe12d84d8667fb0821c6759,
     type: 3}
   m_propeller: {fileID: 1403101461}
   m_propellerRotationAxis: 2
