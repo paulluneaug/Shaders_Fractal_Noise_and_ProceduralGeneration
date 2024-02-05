@@ -1,14 +1,11 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.IO;
 using Unity.Collections;
-using UnityEditor;
-using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
-using static UnityEditor.Rendering.CameraUI;
+
+# if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public static class RenderTextureSaver
 {
@@ -29,6 +26,7 @@ public static class RenderTextureSaver
 
     private static void OnRequestEnded(AsyncGPUReadbackRequest request, RenderTexture tex, int width, int height, int depth, string path)
     {
+# if UNITY_EDITOR
         Texture output = null;
         switch (tex.dimension)
         {
@@ -67,5 +65,6 @@ public static class RenderTextureSaver
 
         AssetDatabase.CreateAsset(output, $"Assets/{path}.asset");
         AssetDatabase.SaveAssetIfDirty(output);
+# endif
     }
 }

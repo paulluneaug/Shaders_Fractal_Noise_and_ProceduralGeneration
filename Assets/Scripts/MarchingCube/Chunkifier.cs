@@ -1,10 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
-using static MeshStructs;
+
+# if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public class Chunkifier : MonoBehaviour
 {
@@ -204,6 +205,7 @@ public class Chunkifier : MonoBehaviour
         m_dataVisusParents.Clear();
     }
 
+#if UNITY_EDITOR
     [MenuItem("CONTEXT/Chunkifier/PlayWithDatas")]
     public static void PlayWithDatasEditor()
     {
@@ -215,4 +217,5 @@ public class Chunkifier : MonoBehaviour
     {
         Instance.ClearCubes();
     }
+#endif
 }
