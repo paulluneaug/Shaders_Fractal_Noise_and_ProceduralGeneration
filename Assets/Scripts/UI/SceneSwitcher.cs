@@ -4,9 +4,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
+using UnityUtility.SceneReference;
+
 public class SceneSwitcher : MonoBehaviour
 {
-    [SerializeField] private string m_sceneToSwitchTo = string.Empty;
+    [SerializeField] private SceneReference m_sceneToSwitchTo = null;
     [SerializeField] private float m_fadeTime = 1.0f;
 
     [NonSerialized] private Scene m_scene;
@@ -15,9 +17,9 @@ public class SceneSwitcher : MonoBehaviour
     {
     }
 
-    public void SetSceneToLoad(string sceneName)
+    public void SetSceneToLoad(SceneReference scene)
     {
-        m_sceneToSwitchTo = sceneName;
+        m_sceneToSwitchTo = scene;
     }
 
     public void SwitchToScene()
